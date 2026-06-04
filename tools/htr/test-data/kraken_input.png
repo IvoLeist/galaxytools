@@ -1,0 +1,2 @@
+Placeholder test fixture. The wrapper test is an expected-failure test that
+exercises command generation with a deliberately missing Kraken model.

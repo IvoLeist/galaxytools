@@ -1,0 +1,250 @@
+<tool id="kraken_ocr" name="Kraken OCR" version="@TOOL_VERSION@+galaxy0" profile="24.0">
+    <description>recognize text in document images</description>
+    <macros>
+        <token name="@TOOL_VERSION@">7.0.2</token>
+    </macros>
+    <requirements>
+        <container type="docker">ocrd/kraken:latest</container>
+    </requirements>
+    <command detect_errors="exit_code"><![CDATA[
+        ln -s '$image' 'input.${image.ext}' &&
+        #if $recognition_model.source == 'history'
+            ln -s '$recognition_model.model_file' recognition.mlmodel &&
+        #end if
+        #if $segmentation.mode == 'baseline' and $segmentation.segmentation_model.source == 'history'
+            ln -s '$segmentation.segmentation_model.model_file' segmentation.mlmodel &&
+        #end if
+        kraken
+            $output_format
+            --raise-on-error
+            --threads '$threads'
+            #if $device
+                --device '$device'
+            #end if
+            -i 'input.${image.ext}' kraken_output
+            #if $binarize.use_binarize == 'yes'
+                binarize
+                    --threshold '$binarize.threshold'
+                    --zoom '$binarize.zoom'
+                    --escale '$binarize.escale'
+                    --border '$binarize.border'
+            #end if
+            #if $segmentation.mode == 'baseline'
+                segment
+                    -bl
+                    #if $segmentation.segmentation_model.source == 'history'
+                        -i segmentation.mlmodel
+                    #else if $segmentation.segmentation_model.source == 'installed'
+                        -i '$segmentation.segmentation_model.model_name'
+                    #end if
+                    #if $segmentation.text_direction
+                        -d '$segmentation.text_direction'
+                    #end if
+            #else if $segmentation.mode == 'legacy'
+                segment
+                    --boxes
+                    #if $segmentation.text_direction
+                        -d '$segmentation.text_direction'
+                    #end if
+                    #if $segmentation.pad is not None
+                        --pad '$segmentation.pad'
+                    #end if
+            #end if
+            ocr
+                #if $segmentation.mode == 'none'
+                    --no-segmentation
+                #end if
+                #if $recognition_model.source == 'history'
+                    -m recognition.mlmodel
+                #else
+                    -m '$recognition_model.model_name'
+                #end if
+                #if $ocr_options.text_direction
+                    -d '$ocr_options.text_direction'
+                #end if
+                #if $ocr_options.base_dir
+                    --base-dir '$ocr_options.base_dir'
+                #end if
+                #if $ocr_options.batch_size is not None
+                    --batch-size '$ocr_options.batch_size'
+                #end if
+                #if $ocr_options.pad is not None
+                    --pad '$ocr_options.pad'
+                #end if
+        &&
+        mv kraken_output '$output'
+    ]]></command>
+    <inputs>
+        <param name="image" type="data" format="jpg,png,tiff,bmp" label="Document image"/>
+        <conditional name="recognition_model">
+            <param name="source" type="select" label="Recognition model source">
+                <option value="history" selected="true">Model file from history</option>
+                <option value="installed">Installed Kraken model name or path</option>
+            </param>
+            <when value="history">
+                <param name="model_file" type="data" format="data" label="Recognition model" help="Kraken .mlmodel file for text recognition."/>
+            </when>
+            <when value="installed">
+                <param name="model_name" type="text" value="en_best.mlmodel" label="Recognition model name or path" help="Name of a model available to Kraken, for example one downloaded with kraken get.">
+                    <sanitizer>
+                        <valid initial="string.ascii_letters,string.digits">
+                            <add value="."/>
+                            <add value="-"/>
+                            <add value="_"/>
+                            <add value="/"/>
+                            <add value=":"/>
+                        </valid>
+                    </sanitizer>
+                </param>
+            </when>
+        </conditional>
+        <conditional name="binarize">
+            <param name="use_binarize" type="select" label="Binarize image">
+                <option value="no" selected="true">No</option>
+                <option value="yes">Yes</option>
+            </param>
+            <when value="no"/>
+            <when value="yes">
+                <param argument="--threshold" type="float" value="0.5" label="Threshold"/>
+                <param argument="--zoom" type="float" value="0.5" label="Zoom"/>
+                <param argument="--escale" type="float" value="1.0" label="Scale estimate"/>
+                <param argument="--border" type="float" value="0.1" label="Border"/>
+            </when>
+        </conditional>
+        <conditional name="segmentation">
+            <param name="mode" type="select" label="Segmentation">
+                <option value="baseline" selected="true">Baseline segmentation</option>
+                <option value="legacy">Legacy box segmentation</option>
+                <option value="none">No segmentation, treat image as one line</option>
+            </param>
+            <when value="baseline">
+                <conditional name="segmentation_model">
+                    <param name="source" type="select" label="Segmentation model source">
+                        <option value="default" selected="true">Kraken default baseline model</option>
+                        <option value="history">Model file from history</option>
+                        <option value="installed">Installed Kraken model name or path</option>
+                    </param>
+                    <when value="default"/>
+                    <when value="history">
+                        <param name="model_file" type="data" format="data" label="Segmentation model" help="Kraken .mlmodel file for baseline or region detection."/>
+                    </when>
+                    <when value="installed">
+                        <param name="model_name" type="text" value="blla.mlmodel" label="Segmentation model name or path">
+                            <sanitizer>
+                                <valid initial="string.ascii_letters,string.digits">
+                                    <add value="."/>
+                                    <add value="-"/>
+                                    <add value="_"/>
+                                    <add value="/"/>
+                                    <add value=":"/>
+                                </valid>
+                            </sanitizer>
+                        </param>
+                    </when>
+                </conditional>
+                <param name="text_direction" type="select" optional="true" label="Segmentation text direction">
+                    <option value="">Use Kraken default</option>
+                    <option value="horizontal-lr">Horizontal, left-to-right</option>
+                    <option value="horizontal-rl">Horizontal, right-to-left</option>
+                    <option value="vertical-lr">Vertical, left-to-right columns</option>
+                    <option value="vertical-rl">Vertical, right-to-left columns</option>
+                </param>
+            </when>
+            <when value="legacy">
+                <param name="text_direction" type="select" optional="true" label="Segmentation text direction">
+                    <option value="">Use Kraken default</option>
+                    <option value="horizontal-lr">Horizontal, left-to-right</option>
+                    <option value="horizontal-rl">Horizontal, right-to-left</option>
+                    <option value="vertical-lr">Vertical, left-to-right columns</option>
+                    <option value="vertical-rl">Vertical, right-to-left columns</option>
+                </param>
+                <param argument="--pad" type="integer" optional="true" min="0" label="Line padding"/>
+            </when>
+            <when value="none"/>
+        </conditional>
+        <section name="ocr_options" title="OCR options" expanded="false">
+            <param name="text_direction" type="select" optional="true" label="Serialization text direction">
+                <option value="">Use Kraken default</option>
+                <option value="horizontal-tb">Horizontal, top-to-bottom</option>
+                <option value="vertical-lr">Vertical, left-to-right</option>
+                <option value="vertical-rl">Vertical, right-to-left</option>
+            </param>
+            <param argument="--base-dir" type="select" optional="true" label="BiDi base direction">
+                <option value="">Use Kraken default</option>
+                <option value="auto">Automatic</option>
+                <option value="L">Left-to-right</option>
+                <option value="R">Right-to-left</option>
+            </param>
+            <param argument="--batch-size" type="integer" optional="true" min="1" label="Batch size"/>
+            <param argument="--pad" type="integer" optional="true" min="0" label="Line image padding"/>
+        </section>
+        <param name="output_format" type="select" label="Output format">
+            <option value="-n" selected="true">Plain text</option>
+            <option value="-a">ALTO XML</option>
+            <option value="-x">PageXML</option>
+            <option value="-h">hOCR</option>
+            <option value="-y">abbyyXML</option>
+        </param>
+        <param argument="--device" type="text" optional="true" label="Device" help="Optional PyTorch device such as cpu, cuda:0, or mps.">
+            <sanitizer>
+                <valid initial="string.ascii_letters,string.digits">
+                    <add value=":"/>
+                    <add value="_"/>
+                    <add value="-"/>
+                </valid>
+            </sanitizer>
+        </param>
+        <param argument="--threads" type="integer" min="1" value="1" label="Thread count"/>
+    </inputs>
+    <outputs>
+        <data name="output" format="txt" label="${tool.name} on ${on_string}">
+            <change_format>
+                <when input="output_format" value="-a" format="xml"/>
+                <when input="output_format" value="-x" format="xml"/>
+                <when input="output_format" value="-h" format="html"/>
+                <when input="output_format" value="-y" format="xml"/>
+            </change_format>
+        </data>
+    </outputs>
+    <tests>
+        <test expect_failure="true">
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="recognition_model">
+                <param name="source" value="installed"/>
+                <param name="model_name" value="missing.mlmodel"/>
+            </conditional>
+            <conditional name="binarize">
+                <param name="use_binarize" value="no"/>
+            </conditional>
+            <conditional name="segmentation">
+                <param name="mode" value="none"/>
+            </conditional>
+            <param name="output_format" value="-n"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+**What it does**
+
+Kraken is an OCR and HTR system for historical, non-Latin, and other document
+images. This wrapper runs Kraken's standard recognition pipeline on one image.
+It can optionally binarize the image, segment text with Kraken's baseline or
+legacy segmenter, and recognize text with a supplied model.
+
+Recognition requires a Kraken `.mlmodel` recognition model. You can upload a
+model as a Galaxy dataset or refer to a model name/path already installed in the
+Kraken runtime, for example a model downloaded with `kraken get`.
+
+Upstream Kraken no longer supports a pure Conda installation. Container-enabled
+Galaxy instances should use the declared container runtime; non-container
+deployments need a manually managed Python/PyPI Kraken installation.
+
+For page images, use baseline segmentation unless you have pre-cropped line
+images. For line images, select "No segmentation, treat image as one line".
+
+Output formats are selected with Kraken's serializer switches:
+plain text, ALTO XML, PageXML, hOCR, or abbyyXML.
+    ]]></help>
+    <citations>
+        <citation type="doi">10.5281/zenodo.2577813</citation>
+    </citations>
+</tool>
