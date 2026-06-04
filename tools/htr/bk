@@ -14,11 +14,6 @@
     <version_command>echo "@VERSION@"</version_command>
     <command detect_errors="aggressive">
         <![CDATA[
-            which kraken 
-        ]]>
-    </command>
-    <command detect_errors="aggressive">
-        <![CDATA[
             ln -s '$image' 'input.${image.ext}' &&
             kraken
                 $output_format
