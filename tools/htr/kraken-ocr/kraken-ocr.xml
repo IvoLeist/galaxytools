@@ -1,15 +1,15 @@
 <tool id="kraken_ocr" name="Kraken OCR" version="@TOOL_VERSION@+galaxy0" profile="24.0">
     <description>recognize text in document images</description>
     <macros>
-        <token name="@TOOL_VERSION@">4.3.13</token>
+        <token name="@TOOL_VERSION@">7.0</token>
     </macros>
      <creator>
         <organization name="European Galaxy Team" url="https://galaxyproject.org/eu/"/>
         <person givenName="Ivo" familyName="Leist" email="leist@informatik.uni-freiburg.de"/>
     </creator>
     <requirements>
-        <requirement type="package" version="@TOOL_VERSION@">kraken</requirement>
-        <!-- <container type="docker">ocrd/kraken:latest</container> -->
+        <!-- <requirement type="package" version="@TOOL_VERSION@">kraken</requirement> -->
+        <container type="docker">kraken-ocr:@TOOL_VERSION@</container>
     </requirements>
     <version_command>echo "@VERSION@"</version_command>
     <command detect_errors="aggressive">
@@ -21,7 +21,7 @@
                 #if $device
                     --device '$device'
                 #end if
-                --input 'input.${image.ext}' kranken_output
+                --input 'input.${image.ext}' 'kraken_output'
                 #if $binarize.use_binarize == 'yes'
                     binarize
                         --threshold '$binarize.threshold'
@@ -148,7 +148,7 @@
         <param argument="--threads" type="integer" min="1" value="1" label="Thread count"/>
     </inputs>
     <outputs>
-        <data name="output" format="txt" label="${tool.name} on ${on_string}">
+        <data name="output" format="png" label="${tool.name} on ${on_string}">
             <change_format>
                 <when input="output_format" value="-a" format="xml"/>
                 <when input="output_format" value="-x" format="xml"/>
