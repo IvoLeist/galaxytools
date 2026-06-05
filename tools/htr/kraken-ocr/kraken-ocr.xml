@@ -1,0 +1,347 @@
+<tool id="kraken_ocr" name="Kraken OCR" version="@TOOL_VERSION@+galaxy0" profile="24.0">
+    <description>recognize text in document images</description>
+    <macros>
+        <token name="@TOOL_VERSION@">7.0</token>
+    </macros>
+     <creator>
+        <organization name="European Galaxy Team" url="https://galaxyproject.org/eu/"/>
+        <person givenName="Ivo" familyName="Leist" email="leist@informatik.uni-freiburg.de"/>
+    </creator>
+    <requirements>
+        <!-- <requirement type="package" version="@TOOL_VERSION@">kraken</requirement> -->
+        <container type="docker">kraken-ocr:@TOOL_VERSION@</container>
+    </requirements>
+    <version_command>echo "@VERSION@"</version_command>
+    <command detect_errors="aggressive">
+        <![CDATA[
+            #if $binarize.use_binarize == 'no' and $segmentation.use_segmentation == 'no' and $ocr.use_ocr == 'no'
+                echo 'Select at least one command: binarize, segment, or OCR.' >&2; exit 1
+            #else
+                ln -s '$image' 'input.${image.ext}' &&
+                kraken
+                    $output_format
+                    --raise-on-error
+                    #if $device
+                        --device '$device'
+                    #end if
+                    --input 'input.${image.ext}' 'kraken_output'
+                    #if $binarize.use_binarize == 'yes'
+                        binarize
+                            --threshold '$binarize.threshold'
+                            --zoom '$binarize.zoom'
+                            --escale '$binarize.escale'
+                            --border '$binarize.border'
+                    #end if
+                    #if $segmentation.use_segmentation == 'yes'
+                        segment
+                            -bl
+                            #if $segmentation.segmentation_model.source != 'default'
+                                --model '$segmentation.segmentation_model.model_name'
+                            #end if
+                            #if $segmentation.text_direction
+                                -d '$segmentation.text_direction'
+                            #end if
+
+                    #end if
+                    #if $ocr.use_ocr == 'yes'
+                        ocr
+                        --model '$ocr.recognition_model.model_name'
+                    #end if
+                &&
+                mv kraken_output '$output'
+            #end if
+        ]]>
+    </command>
+    <inputs>
+        <param name="image" type="data" format="jpg,png,tiff,bmp" label="Document image"/>
+        <conditional name="binarize">
+            <param name="use_binarize" type="select" label="Binarize image">
+                <option value="no" selected="true">No</option>
+                <option value="yes">Yes</option>
+            </param>
+            <when value="no"/>
+            <when value="yes">
+                <param argument="--threshold" type="float" value="0.5" label="Threshold"/>
+                <param argument="--zoom" type="float" value="0.5" label="Zoom"/>
+                <param argument="--escale" type="float" value="1.0" label="Scale estimate"/>
+                <param argument="--border" type="float" value="0.1" label="Border"/>
+            </when>
+        </conditional>
+        <conditional name="segmentation">
+            <param name="use_segmentation" type="select" label="Segment image">
+                <option value="no" selected="true">No</option>
+                <option value="yes">Yes</option>
+            </param>
+            <when value="no"/>
+            <when value="yes">
+                <conditional name="segmentation_model">
+                    <param name="source_type" type="select" label="Segmentation model source">
+                        <option value="preinstalled">Installed segmentation model name or path </option>
+                    </param>
+                    <when value="preinstalled">
+                        <param name="model_name" type="text" value="blla.mlmodel" label="Segmentation model name or path" help="Segmentation model name or path">
+                            <sanitizer>
+                                <valid initial="string.ascii_letters,string.digits">
+                                    <add value="."/>
+                                    <add value="-"/>
+                                    <add value="_"/>
+                                    <add value="/"/>
+                                    <add value=":"/>
+                                </valid>
+                            </sanitizer>
+                        </param>
+                        <param name="source" type="select" label="Segmentation model source">
+                            <option value="default" selected="true">Kraken default baseline model</option>
+                            <option value="history">Model file from history</option>
+                            <option value="installed">Installed Kraken model name or path</option>
+                        </param>
+                    </when>
+                </conditional>
+                    <param name="text_direction" type="select" optional="true" label="Segmentation text direction">
+                        <option value="">Use Kraken default</option>
+                        <option value="horizontal-lr">Horizontal, left-to-right</option>
+                        <option value="horizontal-rl">Horizontal, right-to-left</option>
+                        <option value="vertical-lr">Vertical, left-to-right columns</option>
+                        <option value="vertical-rl">Vertical, right-to-left columns</option>
+                    </param>
+            </when>
+        </conditional>
+        <conditional name="ocr">
+            <param name="use_ocr" type="select" label="Optical character recognition">
+                <option value="no" selected="true">No</option>
+                <option value="yes">Yes</option>
+            </param>
+            <when value="no"/>
+            <when value="yes">
+                <conditional name="recognition_model">
+                    <param name="source_type" type="select" label="Recognition model source">
+                        <option value="preinstalled">Installed Kraken model name or path</option>
+                    </param>
+                    <when value="preinstalled">
+                        <param name="model_name" type="text" value="catmus-print-fondue-large.mlmodel" label="Recognition model name or path" help="Name of a model available to Kraken, for example one downloaded with kraken get.">
+                            <sanitizer>
+                                <valid initial="string.ascii_letters,string.digits">
+                                    <add value="."/>
+                                    <add value="-"/>
+                                    <add value="_"/>
+                                    <add value="/"/>
+                                    <add value=":"/>
+                                </valid>
+                            </sanitizer>
+                        </param>
+                    </when>
+                </conditional>
+            </when>
+        </conditional>
+        <param name="output_format" type="select" label="Output format">
+            <option value="-n" selected="true">Native/default</option>
+            <option value="-a">ALTO XML</option>
+            <option value="-x">PageXML</option>
+            <option value="-h">hOCR</option>
+            <option value="-y">abbyyXML</option>
+        </param>
+        <param argument="--device" type="text" optional="true" label="Device" help="Optional PyTorch device such as cpu, cuda:0, or mps.">
+            <sanitizer>
+                <valid initial="string.ascii_letters,string.digits">
+                    <add value=":"/>
+                    <add value="_"/>
+                    <add value="-"/>
+                </valid>
+            </sanitizer>
+        </param>
+        <param argument="--threads" type="integer" min="1" value="1" label="Thread count"/>
+    </inputs>
+    <outputs>
+        <data name="output" format="png" label="${tool.name} on ${on_string}">
+            <actions>
+                <conditional name="output_format">
+                    <when value="-a">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-x">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-h">
+                        <action type="format" default="html"/>
+                    </when>
+                    <when value="-y">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-n">
+                        <conditional name="ocr.use_ocr">
+                            <when value="yes">
+                                <action type="format" default="txt"/>
+                            </when>
+                            <when value="no">
+                                <conditional name="segmentation.use_segmentation">
+                                    <when value="yes">
+                                        <action type="format" default="json"/>
+                                    </when>
+                                    <when value="no">
+                                        <conditional name="binarize.use_binarize">
+                                            <when value="yes">
+                                                <action type="format" default="png"/>
+                                            </when>
+                                        </conditional>
+                                    </when>
+                                </conditional>
+                            </when>
+                        </conditional>
+                    </when>
+                </conditional>
+            </actions>
+        </data>
+    </outputs>
+    <tests>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="binarize">
+                <param name="use_binarize" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-n"/>
+            <output name="output" ftype="png">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="segmentation">
+                <param name="use_segmentation" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-n"/>
+            <output name="output" ftype="json">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="binarize">
+                <param name="use_binarize" value="yes"/>
+            </conditional>
+            <conditional name="segmentation">
+                <param name="use_segmentation" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-n"/>
+            <output name="output" ftype="json">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="binarize">
+                <param name="use_binarize" value="yes"/>
+            </conditional>
+            <conditional name="segmentation">
+                <param name="use_segmentation" value="yes"/>
+            </conditional>
+            <conditional name="ocr">
+                <param name="use_ocr" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-n"/>
+            <output name="output" ftype="txt">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="ocr">
+                <param name="use_ocr" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-h"/>
+            <output name="output" ftype="html">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="ocr">
+                <param name="use_ocr" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-a"/>
+            <output name="output" ftype="xml">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="ocr">
+                <param name="use_ocr" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-x"/>
+            <output name="output" ftype="xml">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="ocr">
+                <param name="use_ocr" value="yes"/>
+            </conditional>
+            <param name="output_format" value="-y"/>
+            <output name="output" ftype="xml">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_failure="true">
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <param name="output_format" value="-n"/>
+            <assert_stderr>
+                <has_text text="Select at least one command"/>
+            </assert_stderr>
+        </test>
+        <test expect_failure="true">
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <conditional name="ocr">
+                <param name="use_ocr" value="yes"/>
+                <conditional name="recognition_model">
+                    <param name="source_type" value="preinstalled"/>
+                    <param name="model_name" value="unknown"/>
+                </conditional>
+            </conditional>
+            <param name="output_format" value="-n"/>
+        </test>
+    </tests>
+    <help>
+    <![CDATA[
+        **What it does**
+
+        Kraken is an OCR and HTR system for historical, non-Latin, and other document
+        images. This wrapper runs Kraken's standard recognition pipeline on one image.
+        It can optionally binarize the image, segment text with Kraken's baseline or
+        legacy segmenter, and recognize text with a supplied model.
+
+        Recognition requires a Kraken `.mlmodel` recognition model. You can upload a
+        model as a Galaxy dataset or refer to a model name/path already installed in the
+        Kraken runtime, for example a model downloaded with `kraken get`.
+
+        For page images, use baseline segmentation unless you have pre-cropped line
+        images. For line images, select "No segmentation, treat image as one line".
+
+        Output formats are selected with Kraken's serializer switches:
+        native/default, ALTO XML, PageXML, hOCR, or abbyyXML.
+        
+        **License**
+        Kraken is licensed under the  Apache-2.0 license.
+
+
+    ]]></help>
+    <citations>
+        <citation type="doi">10.5281/zenodo.2577813</citation>
+    </citations>
+</tool>
