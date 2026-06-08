@@ -34,7 +34,7 @@
                     #end if
                     #if $segmentation.use_segmentation == 'yes'
                         segment
-                            -bl
+                            ## -bl segmenter default vs neural dropdown is mising here
                             #if $segmentation.segmentation_model.source != 'default'
                                 --model '$segmentation.segmentation_model.model_name'
                             #end if
@@ -45,7 +45,8 @@
                     #end if
                     #if $ocr.use_ocr == 'yes'
                         ocr
-                        --model '$ocr.recognition_model.model_name'
+                        ## --model '$ocr.recognition_model.model_name'
+                        --model /opt/ocr_models/catmus-print-fondue-large.mlmodel
                     #end if
                 &&
                 mv kraken_output '$output'
