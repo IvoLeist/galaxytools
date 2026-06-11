@@ -1,60 +1,52 @@
-<tool id="kraken_ocr" name="Kraken OCR" version="@TOOL_VERSION@+galaxy0" profile="24.0">
-    <description>recognize text in document images</description>
+<tool id="kraken_ocr" name="Kraken OCR" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="26.1">
+    <description>binarise, segment and extract text in document images</description>
     <macros>
-        <token name="@TOOL_VERSION@">7.0</token>
+        <import>macros.xml</import>
     </macros>
-     <creator>
-        <organization name="European Galaxy Team" url="https://galaxyproject.org/eu/"/>
-        <person givenName="Ivo" familyName="Leist" email="leist@informatik.uni-freiburg.de"/>
-    </creator>
-    <requirements>
-        <!-- <requirement type="package" version="@TOOL_VERSION@">kraken</requirement> -->
-        <container type="docker">kraken-ocr:@TOOL_VERSION@</container>
-    </requirements>
-    <version_command>echo "@VERSION@"</version_command>
-    <command detect_errors="aggressive">
-        <![CDATA[
-            #if $binarize.use_binarize == 'no' and $segmentation.use_segmentation == 'no' and $ocr.use_ocr == 'no'
-                echo 'Select at least one command: binarize, segment, or OCR.' >&2; exit 1
-            #else
-                ln -s '$image' 'input.${image.ext}' &&
-                kraken
-                    $output_format
-                    --raise-on-error
-                    #if $device
-                        --device '$device'
-                    #end if
-                    --input 'input.${image.ext}' 'kraken_output'
-                    #if $binarize.use_binarize == 'yes'
-                        binarize
-                            --threshold '$binarize.threshold'
-                            --zoom '$binarize.zoom'
-                            --escale '$binarize.escale'
-                            --border '$binarize.border'
-                    #end if
-                    #if $segmentation.use_segmentation == 'yes'
-                        segment
-                            ## -bl segmenter default vs neural dropdown is mising here
-                            #if $segmentation.segmentation_model.source != 'default'
-                                --model '$segmentation.segmentation_model.model_name'
-                            #end if
-                            #if $segmentation.text_direction
-                                -d '$segmentation.text_direction'
-                            #end if
+    <expand macro="requirements" />
+    <expand macro="creators" />
+    <command detect_errors="exit_code"><![CDATA[
+        #if $binarize.use_binarize == 'no' and $segmentation.use_segmentation == 'no' and $ocr.use_ocr == 'no'
+            echo 'Select at least one command: binarize, segment, or OCR.' >&2; exit 1
+        #else
+            ln -s '$image' 'input.${image.ext}' &&
+            kraken
+                $output_format
+                --raise-on-error
+                #if $device
+                    --device '$device'
+                #end if
+                --input 'input.${image.ext}' 'kraken_output'
+                #if $binarize.use_binarize == 'yes'
+                    binarize
+                        --threshold '$binarize.threshold'
+                        --zoom '$binarize.zoom'
+                        --escale '$binarize.escale'
+                        --border '$binarize.border'
+                #end if
+                #if $segmentation.use_segmentation == 'yes'
+                    segment
+                        ## -bl segmenter default vs neural dropdown is mising here
+                        #if $segmentation.segmentation_model.source != 'default'
+                            --model '$segmentation.segmentation_model.model_name'
+                        #end if
+                        #if $segmentation.text_direction
+                            -d '$segmentation.text_direction'
+                        #end if
 
-                    #end if
-                    #if $ocr.use_ocr == 'yes'
-                        ocr
-                        ## --model '$ocr.recognition_model.model_name'
-                        --model /opt/ocr_models/catmus-print-fondue-large.mlmodel
-                    #end if
-                &&
-                mv kraken_output '$output'
-            #end if
-        ]]>
+                #end if
+                #if $ocr.use_ocr == 'yes'
+                    ocr
+                    ## --model '$ocr.recognition_model.model_name'
+                    --model /opt/ocr_models/catmus-print-fondue-large.mlmodel
+                #end if
+            &&
+            mv kraken_output '$output'
+        #end if
+    ]]>
     </command>
     <inputs>
-        <param name="image" type="data" format="jpg,png,tiff,bmp" label="Document image"/>
+        <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
         <conditional name="binarize">
             <param name="use_binarize" type="select" label="Binarize image">
                 <option value="no" selected="true">No</option>
@@ -114,24 +106,19 @@
             </param>
             <when value="no"/>
             <when value="yes">
-                <conditional name="recognition_model">
-                    <param name="source_type" type="select" label="Recognition model source">
-                        <option value="preinstalled">Installed Kraken model name or path</option>
-                    </param>
-                    <when value="preinstalled">
-                        <param name="model_name" type="text" value="catmus-print-fondue-large.mlmodel" label="Recognition model name or path" help="Name of a model available to Kraken, for example one downloaded with kraken get.">
-                            <sanitizer>
-                                <valid initial="string.ascii_letters,string.digits">
-                                    <add value="."/>
-                                    <add value="-"/>
-                                    <add value="_"/>
-                                    <add value="/"/>
-                                    <add value=":"/>
-                                </valid>
-                            </sanitizer>
-                        </param>
-                    </when>
-                </conditional>
+                <param name="ocr_model" type="select" label="OCR model" help="OCR models">
+                    <options from_data_table="ocr-models">
+                        <column name="value" index="0"/>
+                        <column name="name" index="1"/>
+                        <column name="version" index="2"/>
+                        <column name="path" index="3"/>
+                        <filter type="sort_by" column="1"/>
+                    </options>
+                    <validator 
+                        type="no_options" 
+                        message="kraken has no built-in OCR model. Please select a model from the dropdown."
+                    />
+                </param>
             </when>
         </conditional>
         <param name="output_format" type="select" label="Output format">
@@ -194,6 +181,7 @@
         </data>
     </outputs>
     <tests>
+        # 1 - Test binarization only - Passes
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="binarize">
@@ -206,8 +194,9 @@
                 </assert_contents>
             </output>
         </test>
+        # 2 - Test segmentation only - Passes
         <test>
-            <param name="image" value="kraken_input.png" ftype="png"/>
+            <param name="image" value="kraken_input_binarised.png" ftype="png"/>
             <conditional name="segmentation">
                 <param name="use_segmentation" value="yes"/>
             </conditional>
@@ -218,6 +207,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 3 - Test binarisation and segmentation
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="binarize">
@@ -233,6 +223,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 4 - Test binarisation, segmentation and OCR - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="binarize">
@@ -251,6 +242,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 5 - Test OCR with HTML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -263,6 +255,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 6 - Test OCR with ALTO XML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -275,6 +268,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 7 - Test OCR with PageXML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -287,6 +281,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 8 - Test OCR with Abbyy XML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -299,6 +294,7 @@
                 </assert_contents>
             </output>
         </test>
+        # 9 - Test failure case: no commands selected - Passes
         <test expect_failure="true">
             <param name="image" value="kraken_input.png" ftype="png"/>
             <param name="output_format" value="-n"/>
@@ -306,14 +302,13 @@
                 <has_text text="Select at least one command"/>
             </assert_stderr>
         </test>
+        # 10 - Test failure case: OCR selected but no model provided - Passes
         <test expect_failure="true">
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
                 <param name="use_ocr" value="yes"/>
-                <conditional name="recognition_model">
-                    <param name="source_type" value="preinstalled"/>
-                    <param name="model_name" value="unknown"/>
-                </conditional>
+                <param name="ocr_model" value="catmus-print-fondue-large"/>
+                <param name="ocr_model" value="unknown"/>
             </conditional>
             <param name="output_format" value="-n"/>
         </test>
@@ -339,10 +334,6 @@
         
         **License**
         Kraken is licensed under the  Apache-2.0 license.
-
-
     ]]></help>
-    <citations>
-        <citation type="doi">10.5281/zenodo.2577813</citation>
-    </citations>
+    <expand macro="citations" />
 </tool>

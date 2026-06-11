@@ -1,7 +1,7 @@
 <tables>
-    <!-- Location of tessdata files -->
+    <!-- Location of ocr-models files -->
     <table name="ocr-models" comment_char="#">
         <columns>value, name, version, path</columns>
-        <file path="${__HERE__}/test-data/ocr-models.loc" />
+        <file path="${__HERE__}/test-data/ocr_models.loc" />
     </table>
 </tables>

@@ -1,5 +1,5 @@
 #This is a sample file distributed with Galaxy that enables tools
-#to use a tessdata model folder. The tessdata.loc 
+#to use ocr-models model folder. The ocr_models.loc 
 #file needs this format (longer white space is the TAB character):
 
 #<unique_build_id>	<display_name>	<version>	<DB_folder_path>

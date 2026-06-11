@@ -1,0 +1,32 @@
+<macros>
+    <token name="@TOOL_VERSION@">7.0.2</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <xml name="requirements">
+        <requirements>
+            <container type="docker">quay.io/leistivo/kraken-ocr:@TOOL_VERSION@</container>
+        </requirements>
+    </xml>
+    <xml name="creators">
+        <creator>
+            <person 
+                givenName="Ivo Christopher" familyName="Leist" 
+                email="leist@informatik.uni-freiburg.de"
+                identifier="https://orcid.org/0000-0002-9772-443X"
+            />
+        </creator>
+    </xml>
+    <xml name="citations">
+        <citations>
+            <citation type="bibtex">
+                @software{Kiessling_kraken_OCR_2026,
+                    author = {Kiessling, Benjamin},
+                    month = {05},
+                    title = {The Kraken OCR system},
+                    url = {https://kraken.re},
+                    version = {7.0.2},
+                    year = {2026}
+                } 
+            </citation>
+        </citations>
+    </xml>
+</macros>
