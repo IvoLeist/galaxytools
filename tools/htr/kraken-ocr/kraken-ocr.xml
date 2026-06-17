@@ -23,22 +23,39 @@
                         --zoom '$binarize.zoom'
                         --escale '$binarize.escale'
                         --border '$binarize.border'
+                        --perc '$binarize.perc'
+                        --range '$binarize.range'
+                        --low '$binarize.low'
+                        --high '$binarize.high'
                 #end if
                 #if $segmentation.use_segmentation == 'yes'
                     segment
-                        ## -bl segmenter default vs neural dropdown is mising here
                         #if $segmentation.segmentation_model.source != 'default'
                             --model '$segmentation.segmentation_model.model_name'
                         #end if
-                        #if $segmentation.text_direction
-                            -d '$segmentation.text_direction'
-                        #end if
-
+                        $segmentation.segmenter
+                        --text-direction '$segmentation.text_direction'
+                        --scale '$segmentation.scale'
+                        --maxcolseps '$segmentation.maxcolseps'
+                        $segmentation.colseps
+                        --remove-hlines '$segmentation.remove_hlines'
+                        --pad '$segmentation.pad'
+                        --input-pad '$segmentation.input_pad'                        
                 #end if
                 #if $ocr.use_ocr == 'yes'
                     ocr
                     ## --model '$ocr.recognition_model.model_name'
                     --model /opt/ocr_models/catmus-print-fondue-large.mlmodel
+                    --batch-size '$ocr.batch_size'
+                    --pad '$ocr.pad'
+                    --temperature '$ocr.temperature'
+                    $reorder
+                    --base-dir '$ocr.base_dir'
+                    --no-segmentation '$ocr.no_segmentation'
+                    --text-direction '$ocr.text_direction'
+                    #if $no_legacy_poligons
+                        --no-legacy-polygons
+                    #end if
                 #end if
             &&
             mv kraken_output '$output'
@@ -55,9 +72,13 @@
             <when value="no"/>
             <when value="yes">
                 <param argument="--threshold" type="float" value="0.5" label="Threshold"/>
-                <param argument="--zoom" type="float" value="0.5" label="Zoom"/>
+                <param argument="--zoom" type="float" value="0.5" label="Zoom for background page estimation"/>
                 <param argument="--escale" type="float" value="1.0" label="Scale estimate"/>
-                <param argument="--border" type="float" value="0.1" label="Border"/>
+                <param argument="--border" type="float" value="0.1" label="Ignore this much of the border"/>
+                <param argument="--perc" type="float" value="80" label="Percentage for filters"/>
+                <param argument="--range" type="float" value="20" label="Range for filters"/>
+                <param argument="--low" type="float" value="5" label="Percentile for black estimation"/>
+                <param argument="--high" type="float" value="90" label="Percentile for white estimation"/>
             </when>
         </conditional>
         <conditional name="segmentation">
@@ -90,13 +111,23 @@
                         </param>
                     </when>
                 </conditional>
-                    <param name="text_direction" type="select" optional="true" label="Segmentation text direction">
-                        <option value="">Use Kraken default</option>
-                        <option value="horizontal-lr">Horizontal, left-to-right</option>
-                        <option value="horizontal-rl">Horizontal, right-to-left</option>
-                        <option value="vertical-lr">Vertical, left-to-right columns</option>
-                        <option value="vertical-rl">Vertical, right-to-left columns</option>
-                    </param>
+                <param name="segmenter" type="select" label="Segmenter type">
+                    <option value="--boxes" selected="true">legacy box segmenter</option>
+                    <option value="--baseline">neural baseline segmenter</option>
+                </param>
+                <param name="text_direction" type="select" label="Segmentation text direction">
+                    <option value="horizontal-lr">Horizontal, left-to-right</option>
+                    <option value="horizontal-rl">Horizontal, right-to-left</option>
+                    <option value="vertical-lr">Vertical, left-to-right columns</option>
+                    <option value="vertical-rl">Vertical, right-to-left columns</option>
+                </param>
+                <param argument="--remove-hlines" type="text" value="r" label="Remove horizontal lines"/>
+                <param argument="--maxcolseps" type="integer" value="2" label="Maximum column separators"/>
+                <param name="colseps" type="select" label="Column separator color">
+                    <option value="--white_colseps" selected="true">White</option>
+                    <option value="--black-colseps">Black</option>
+                </param>
+                <param argument="--input-pad" type="integer" value="0" label="Padding to add around input image"/>
             </when>
         </conditional>
         <conditional name="ocr">
@@ -119,6 +150,23 @@
                         message="kraken has no built-in OCR model. Please select a model from the dropdown."
                     />
                 </param>
+                <param argument="--batch-size" type="integer" value="1" label="OCR batch size"/>
+                <param argument="--pad" type="integer" value="16" label="Padding to add around line images for OCR"/>
+                <param argument="--temperature" type="float" value="1.0" label="Temperature for OCR sampling"/>
+                <param name="reorder" type="select" label="Reorder lines with OCR text line reading order model">
+                    <option value="--reorder" selected="true">Yes</option>
+                    <option value="--no-reorder">No</option>
+                </param>
+                <param argument="--base-dir" type="text" value="L" label="Base text direction"/>
+                <param argument="--no-segmentation" type="select" label="No segmentation, treat image as one line">
+                    <option value="false" selected="true">No</option>
+                    <option value="true">Yes</option>
+                </param>
+                <param argument="--text-direction" type="select" label="OCR text direction">
+                    <option value="horizontal-tb" selected="true">Horizontal, top-to-bottom</option>
+                    <option value="vertical-lr">Vertical, left-to-right</option>
+                    <option value="vertical-rl">Vertical, right-to-left</option>
+                </param> 
             </when>
         </conditional>
         <param name="output_format" type="select" label="Output format">
@@ -181,7 +229,6 @@
         </data>
     </outputs>
     <tests>
-        # 1 - Test binarization only - Passes
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="binarize">
@@ -194,7 +241,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 2 - Test segmentation only - Passes
         <test>
             <param name="image" value="kraken_input_binarised.png" ftype="png"/>
             <conditional name="segmentation">
@@ -207,7 +253,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 3 - Test binarisation and segmentation
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="binarize">
@@ -223,7 +268,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 4 - Test binarisation, segmentation and OCR - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="binarize">
@@ -242,7 +286,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 5 - Test OCR with HTML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -255,7 +298,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 6 - Test OCR with ALTO XML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -268,7 +310,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 7 - Test OCR with PageXML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -281,7 +322,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 8 - Test OCR with Abbyy XML output - Error an invalid option (None) was selected
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
@@ -294,7 +334,6 @@
                 </assert_contents>
             </output>
         </test>
-        # 9 - Test failure case: no commands selected - Passes
         <test expect_failure="true">
             <param name="image" value="kraken_input.png" ftype="png"/>
             <param name="output_format" value="-n"/>
@@ -302,7 +341,6 @@
                 <has_text text="Select at least one command"/>
             </assert_stderr>
         </test>
-        # 10 - Test failure case: OCR selected but no model provided - Passes
         <test expect_failure="true">
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="ocr">
