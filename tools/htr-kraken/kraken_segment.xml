@@ -8,14 +8,14 @@
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$image' 'input.${image.ext}' &&
         kraken
-            -n
+            $output_format
             --raise-on-error
             --input 'input.${image.ext}' 'kraken_output'
             segment
                 #if $segmenter.type == 'baseline'
                     --baseline
-                    #if $segmenter.segmentation_model.source == 'installed'
-                        --model '$segmenter.segmentation_model.model_name'
+                    #if str($segmenter.model_name)
+                        --model '$segmenter.model_name'
                     #end if
                 #else
                     --boxes
@@ -34,34 +34,31 @@
     ]]></command>
     <inputs>
         <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
-
+        <param name="output_format" type="select" label="Output format">
+            <option value="-n" selected="true">Native/default (JSON)</option>
+            <option value="-a">ALTO XML</option>
+            <option value="-x">PageXML</option>
+            <option value="-h">hOCR</option>
+            <option value="-y">abbyyXML</option>
+        </param>
         <conditional name="segmenter">
             <param name="type" type="select" label="Segmenter type">
                 <option value="baseline" selected="true">Neural baseline segmenter</option>
-                <option value="boxes">Legacy box segmenter (requires binary input)</option>
+                <option value="boxes">Legacy box segmenter (requires binarised input image)</option>
             </param>
 
             <when value="baseline">
-                <conditional name="segmentation_model">
-                    <param name="source" type="select" label="Baseline/region detection model source">
-                        <option value="default" selected="true">Use Kraken internal stock model</option>
-                        <option value="installed">Installed Kraken model name or path</option>
-                    </param>
-                    <when value="default"/>
-                    <when value="installed">
-                        <param name="model_name" type="text" value="blla.mlmodel" label="Segmentation model name or path" help="Name or path of a segmentation model available to Kraken.">
-                            <sanitizer>
-                                <valid initial="string.ascii_letters,string.digits">
-                                    <add value="."/>
-                                    <add value="-"/>
-                                    <add value="_"/>
-                                    <add value="/"/>
-                                    <add value=":"/>
-                                </valid>
-                            </sanitizer>
-                        </param>
-                    </when>
-                </conditional>
+                <param name="model_name" type="text" optional="true" value="" label="Segmentation model name or path" help="Leave empty to use Kraken's internal stock baseline segmentation model. Otherwise provide the name or path of a segmentation model available to Kraken.">
+                    <sanitizer>
+                        <valid initial="string.ascii_letters,string.digits">
+                            <add value="."/>
+                            <add value="-"/>
+                            <add value="_"/>
+                            <add value="/"/>
+                            <add value=":"/>
+                        </valid>
+                    </sanitizer>
+                </param>
             </when>
 
             <when value="boxes">
@@ -89,16 +86,34 @@
         <param argument="--input-pad" type="integer" value="0" min="0" label="Padding to add around input image"/>
     </inputs>
     <outputs>
-        <data name="output" format="json" label="${tool.name} on ${on_string}"/>
+        <data name="output" format="json" label="${tool.name} on ${on_string}">
+            <actions>
+                <conditional name="output_format">
+                    <when value="-a">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-x">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-h">
+                        <action type="format" default="html"/>
+                    </when>
+                    <when value="-y">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-n">
+                        <action type="format" default="json"/>
+                    </when>
+                </conditional>
+            </actions>
+        </data>
     </outputs>
     <tests>
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
             <conditional name="segmenter">
                 <param name="type" value="baseline"/>
-                <conditional name="segmentation_model">
-                    <param name="source" value="default"/>
-                </conditional>
+                <param name="model_name" value=""/>
             </conditional>
             <output name="output" ftype="json">
                 <assert_contents>
