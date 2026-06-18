@@ -3,7 +3,8 @@
     <token name="@VERSION_SUFFIX@">0</token>
     <xml name="requirements">
         <requirements>
-            <container type="docker">quay.io/leistivo/kraken-ocr:@TOOL_VERSION@</container>
+            <!-- <container type="docker">quay.io/leistivo/kraken-ocr:@TOOL_VERSION@</container> -->
+            <container type="docker">dockerkrakenocr:local-dev</container>
         </requirements>
     </xml>
     <xml name="creators">
