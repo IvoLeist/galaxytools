@@ -1,0 +1,189 @@
+<tool id="kraken_ocr" name="Kraken OCR" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="26.1">
+    <description>extract text from segmented or line document images</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <expand macro="creators" />
+    <command detect_errors="exit_code"><![CDATA[
+        ln -s '$input_type.image' 'input.${input_type.image.ext}' &&
+        #if $input_type.source == 'segmented'
+            ln -s '$input_type.segmentation' 'segmentation.json' &&
+        #end if
+
+        kraken
+            $output_format
+            --raise-on-error
+            #if $device
+                --device '$device'
+            #end if
+
+            #if $input_type.source == 'segmented'
+                --input 'input.${input_type.image.ext}' 'segmentation.json' 'kraken_output'
+            #else
+                --input 'input.${input_type.image.ext}' 'kraken_output'
+            #end if
+
+            ocr
+                --model '$ocr_model'
+                --pad '$pad'
+                --temperature '$temperature'
+                $reorder
+                --base-dir '$base_dir'
+                #if $input_type.source == 'line'
+                    --no-segmentation
+                #end if
+                --text-direction '$text_direction'
+                #if $no_legacy_polygons
+                    --no-legacy-polygons
+                #end if
+        &&
+        mv kraken_output '$output'
+    ]]></command>
+    <inputs>
+        <conditional name="input_type">
+            <param name="source" type="select" label="Input type">
+                <option value="segmented" selected="true">Page image with Kraken segmentation JSON</option>
+                <option value="line">Single line image</option>
+            </param>
+            <when value="segmented">
+                <param name="image" type="data" format="jpg,png,tif" label="Binarised document image"/>
+                <param name="segmentation" type="data" format="json" label="Kraken segmentation JSON"/>
+            </when>
+            <when value="line">
+                <param name="image" type="data" format="jpg,png,tif" label="Line image"/>
+                </when>
+        </conditional>
+        <param name="ocr_model" type="select" label="OCR model" help="Optical character recognition model used by Kraken.">
+            <options from_data_table="ml_models">
+                <column name="value" index="3"/>
+                <column name="name" index="1"/>
+                <column name="version" index="2"/>
+                <column name="path" index="3"/>
+                <filter type="sort_by" column="1"/>
+            </options>
+            <validator type="no_options" message="Kraken has no built-in OCR model. Please select a model from the dropdown."/>
+        </param>
+        <param argument="--pad" type="integer" min="0" value="16" label="Padding to add around line images for OCR"/>
+        <param argument="--temperature" type="float" value="1.0" label="Temperature for OCR sampling"/>
+        <param name="reorder" type="select" label="Reorder lines with OCR text line reading order model">
+            <option value="--reorder" selected="true">Yes</option>
+            <option value="--no-reorder">No</option>
+        </param>
+        <param argument="--base-dir" type="text" value="L" label="Base text direction">
+            <sanitizer>
+                <valid initial="string.ascii_letters,string.digits">
+                    <add value="-"/>
+                    <add value="_"/>
+                </valid>
+            </sanitizer>
+        </param>
+        <param name="no_segmentation" type="select" label="No segmentation, treat image as one line">
+            <option value="" selected="true">No</option>
+            <option value="--no-segmentation">Yes</option>
+        </param>
+        <param argument="--text-direction" type="select" label="OCR text direction">
+            <option value="horizontal-tb" selected="true">Horizontal, top-to-bottom</option>
+            <option value="vertical-lr">Vertical, left-to-right</option>
+            <option value="vertical-rl">Vertical, right-to-left</option>
+        </param>
+        <param name="no_legacy_polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Disable legacy polygon output" help="Pass --no-legacy-polygons to Kraken."/>
+        <param name="output_format" type="select" label="Output format">
+            <option value="-n" selected="true">Native/default text</option>
+            <option value="-a">ALTO XML</option>
+            <option value="-x">PageXML</option>
+            <option value="-h">hOCR</option>
+            <option value="-y">abbyyXML</option>
+        </param>
+        <param argument="--device" type="text" optional="true" label="Device" help="Optional PyTorch device such as cpu, cuda:0, or mps.">
+            <sanitizer>
+                <valid initial="string.ascii_letters,string.digits">
+                    <add value=":"/>
+                    <add value="_"/>
+                    <add value="-"/>
+                </valid>
+            </sanitizer>
+        </param>
+    </inputs>
+    <outputs>
+        <data name="output" format="txt" label="${tool.name} on ${on_string}">
+            <actions>
+                <conditional name="output_format">
+                    <when value="-a">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-x">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-h">
+                        <action type="format" default="html"/>
+                    </when>
+                    <when value="-y">
+                        <action type="format" default="xml"/>
+                    </when>
+                    <when value="-n">
+                        <action type="format" default="txt"/>
+                    </when>
+                </conditional>
+            </actions>
+        </data>
+    </outputs>
+    <tests>
+        <test>
+            <param name="input_type|source" value="segmented"/>
+            <param name="input_type|image" value="kraken_input_binarised.png" ftype="png"/>
+            <param name="input_type|segmentation" value="kraken_segments.json" ftype="json"/>
+            <param name="ocr_model" value="catmus-print-fondue-large"/>
+            <param name="output_format" value="-n"/>
+            <output name="output" ftype="txt">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="input_type|source" value="segmented"/>
+            <param name="input_type|image" value="kraken_input_binarised.png" ftype="png"/>
+            <param name="input_type|segmentation" value="kraken_segments.json" ftype="json"/>
+            <param name="ocr_model" value="catmus-print-fondue-large"/>
+            <param name="output_format" value="-h"/>
+            <output name="output" ftype="html">
+                <assert_contents>
+                    <has_size min="1"/>
+                    <has_text text="html"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <param name="input_type|source" value="segmented"/>
+            <param name="input_type|image" value="kraken_input_binarised.png" ftype="png"/>
+            <param name="input_type|segmentation" value="kraken_segments.json" ftype="json"/>
+            <param name="ocr_model" value="catmus-print-fondue-large"/>
+            <param name="output_format" value="-a"/>
+            <output name="output" ftype="xml">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+        **What it does**
+
+        This tool runs only the Kraken OCR recognition step. It is intended to be used
+        after image binarisation and page segmentation when you split the Kraken
+        workflow into separate Galaxy tools.
+
+        The input can be a Kraken segmentation JSON dataset produced by the standalone
+        segmentation tool. If you enable **No segmentation, treat image as one line**,
+        the input can instead be a single line image.
+
+        Native/default output is plain text. ALTO XML, PageXML, hOCR, and abbyyXML are
+        available through Kraken's serializer switches.
+
+        **License**
+
+        Kraken is licensed under the Apache-2.0 license.
+    ]]></help>
+    <expand macro="citations" />
+</tool>

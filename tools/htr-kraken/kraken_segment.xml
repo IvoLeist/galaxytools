@@ -1,0 +1,114 @@
+<tool id="kraken_segment" name="Kraken Segment" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="26.1">
+    <description>segment text regions and lines in document images</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <expand macro="creators" />
+    <command detect_errors="exit_code"><![CDATA[
+        ln -s '$image' 'input.${image.ext}' &&
+        kraken
+            -n
+            --raise-on-error
+            --input 'input.${image.ext}' 'kraken_output'
+            segment
+                #if $segmentation_model.source != 'default'
+                    --model '$segmentation_model.model_name'
+                #end if
+                $segmenter
+                --text-direction '$text_direction'
+                #if str($scale)
+                    --scale '$scale'
+                #end if
+                --maxcolseps '$maxcolseps'
+                $colseps
+                $hlines
+                --pad '$pad'
+                --input-pad '$input_pad'
+        &&
+        mv kraken_output '$output'
+    ]]></command>
+    <inputs>
+        <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
+        <conditional name="segmentation_model">
+            <param name="source" type="select" label="Segmentation model source">
+                <option value="default" selected="true">Kraken default baseline model</option>
+                <option value="installed">Installed Kraken model name or path</option>
+            </param>
+            <when value="default"/>
+            <when value="installed">
+                <param name="model_name" type="text" value="blla.mlmodel" label="Segmentation model name or path" help="Name or path of a segmentation model available to Kraken.">
+                    <sanitizer>
+                        <valid initial="string.ascii_letters,string.digits">
+                            <add value="."/>
+                            <add value="-"/>
+                            <add value="_"/>
+                            <add value="/"/>
+                            <add value=":"/>
+                        </valid>
+                    </sanitizer>
+                </param>
+            </when>
+        </conditional>
+        <param name="segmenter" type="select" label="Segmenter type">
+            <option value="--boxes" selected="true">Legacy box segmenter</option>
+            <option value="--baseline">Neural baseline segmenter</option>
+        </param>
+        <param argument="--text-direction" type="select" label="Segmentation text direction">
+            <option value="horizontal-lr" selected="true">Horizontal, left-to-right</option>
+            <option value="horizontal-rl">Horizontal, right-to-left</option>
+            <option value="vertical-lr">Vertical, left-to-right columns</option>
+            <option value="vertical-rl">Vertical, right-to-left columns</option>
+        </param>
+        <param argument="--scale" type="float" optional="true" label="Scale"/>
+        <param argument="--maxcolseps" type="integer" value="2" min="0" label="Maximum column separators"/>
+        <param name="colseps" type="select" label="Column separator color">
+            <option value="--white_colseps" selected="true">White</option>
+            <option value="--black-colseps">Black</option>
+        </param>
+        <param name="hlines" type="select" label="Remove/keep horizontal lines">
+            <option value="--remove-hlines" selected="true">Remove horizontal lines</option>
+            <option value="--hlines">Keep horizontal lines</option>
+        </param>
+        <param argument="--pad" type="integer" value="0" min="0" label="Padding around segmented regions"/>
+        <param argument="--input-pad" type="integer" value="0" min="0" label="Padding to add around input image"/>
+    </inputs>
+    <outputs>
+        <data name="output" format="json" label="${tool.name} on ${on_string}"/>
+    </outputs>
+    <tests>
+        <test>
+            <param name="image" value="kraken_input_binarised.png" ftype="png"/>
+            <output name="output" ftype="json">
+                <assert_contents>
+                    <has_size min="1"/>
+                    <has_text text="&quot;imagename&quot;"/>
+                    <has_text text="&quot;text_direction&quot;"/>
+                    <has_text text="&quot;lines&quot;"/>
+                    <has_text text="&quot;regions&quot;"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+        **What it does**
+
+        This tool runs the Kraken `segment` command on one document image and
+        produces Kraken's native segmentation JSON output.
+
+        Segmentation can use either the legacy box segmenter or the neural baseline
+        segmenter. By default, Kraken's built-in baseline segmentation model is used.
+        You can also provide the name or path of a segmentation model already
+        available in the Kraken runtime.
+
+        **Requirements**
+
+        This tool expects a binarised page image as input.
+        If you don't have one yet you can obtain it from the Kraken Binarise tool, 
+        which is also available in the Kraken-OCR tool suite. 
+
+        **License**
+        Kraken is licensed under the Apache-2.0 license.
+    ]]></help>
+    <expand macro="citations" />
+</tool>

@@ -1,0 +1,18 @@
+name: htr
+owner: bgruening
+description: Handwritten text recognition and OCR tools.
+long_description: |
+    Wrappers for handwritten text recognition and OCR tools, including Kraken.
+type: unrestricted
+categories:
+  - Text Manipulation
+  - Imaging
+remote_repository_url: https://github.com/bgruening/galaxytools/tree/master/tools/htr-kraken
+homepage_url: https://kraken.re/
+auto_tool_repositories:
+  name_template: "{{ tool_id }}"
+  description_template: "Wrapper for HTR/OCR tool: {{ tool_name }}"
+suite:
+  name: "suite_htr"
+  description: Handwritten text recognition and OCR tools.
+  long_description: Handwritten text recognition and OCR tools.

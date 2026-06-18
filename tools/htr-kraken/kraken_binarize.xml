@@ -1,0 +1,64 @@
+<tool id="kraken_binarize" name="Kraken Binarize" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="26.1">
+    <description>binarise document images</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements" />
+    <expand macro="creators" />
+    <command detect_errors="exit_code"><![CDATA[
+        ln -s '$image' 'input.${image.ext}' &&
+        kraken
+            -n
+            --raise-on-error
+            --input 'input.${image.ext}' 'kraken_output'
+            binarize
+                --threshold '$threshold'
+                --zoom '$zoom'
+                --escale '$escale'
+                --border '$border'
+                --perc '$perc'
+                --range '$range'
+                --low '$low'
+                --high '$high'
+        &&
+        mv kraken_output '$output'
+    ]]></command>
+    <inputs>
+        <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
+        <param argument="--threshold" type="float" value="0.5" label="Threshold"/>
+        <param argument="--zoom" type="float" value="0.5" label="Zoom for background page estimation"/>
+        <param argument="--escale" type="float" value="1.0" label="Scale estimate"/>
+        <param argument="--border" type="float" value="0.1" label="Ignore this much of the border"/>
+        <param argument="--perc" type="integer" min="1" max="100" value="80" label="Percentage for filters"/>
+        <param argument="--range" type="integer" min="1" max="100" value="20" label="Range for filters"/>
+        <param argument="--low" type="integer" min="1" max="100" value="5" label="Percentile for black estimation"/>
+        <param argument="--high" type="integer" min="1" max="100" value="90" label="Percentile for white estimation"/>
+    </inputs>
+    <outputs>
+        <data name="output" format="png" label="${tool.name} on ${on_string}"/>
+    </outputs>
+    <tests>
+        <test>
+            <param name="image" value="kraken_input.png" ftype="png"/>
+            <output name="output" ftype="png">
+                <assert_contents>
+                    <has_size min="1"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help>
+    <![CDATA[
+        **What it does**
+
+        Kraken is an OCR and HTR system for historical, non-Latin, and other document
+        images. This wrapper runs only Kraken's binarization step on one document image.
+
+        Binarization converts the input image into a binary image suitable for later
+        segmentation and OCR steps.
+
+        **License**
+        Kraken is licensed under the Apache-2.0 license.
+    ]]></help>
+    <expand macro="citations" />
+</tool>
