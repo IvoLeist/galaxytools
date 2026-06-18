@@ -48,7 +48,13 @@
             </param>
             <when value="segmented">
                 <param name="image" type="data" format="jpg,png,tif" label="Binarised document image"/>
-                <param name="segmentation" type="data" format="json" label="Kraken segmentation JSON"/>
+                <param 
+                    name="segmentation" 
+                    type="data" 
+                    format="xml" 
+                    label="Pre-segmented definitions" 
+                    help="XML file containing pre-segmented text regions could be ALTO, PageXML or abbyyXML"
+                />
             </when>
             <when value="line">
                 <param name="image" type="data" format="jpg,png,tif" label="Line image"/>
