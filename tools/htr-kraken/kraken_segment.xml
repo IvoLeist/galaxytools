@@ -5,6 +5,9 @@
     </macros>
     <expand macro="requirements" />
     <expand macro="creators" />
+
+    <!-- TODO: Add support for PDF input -->
+
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$image' 'input.${image.ext}' &&
         kraken
