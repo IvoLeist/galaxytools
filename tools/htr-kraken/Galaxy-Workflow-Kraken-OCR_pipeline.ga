@@ -1,0 +1,181 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "comments": [],
+    "format-version": "0.1",
+    "name": "Kraken-OCR pipeline",
+    "report": {
+        "markdown": "\n# Workflow Execution Report\n\n## Workflow Inputs\n```galaxy\ninvocation_inputs()\n```\n\n## Workflow Outputs\n```galaxy\ninvocation_outputs()\n```\n\n## Workflow\n```galaxy\nworkflow_display()\n```\n"
+    },
+    "steps": {
+        "0": {
+            "annotation": "jpg,png,tiff or pdf",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "jpg,png,tiff or pdf",
+                    "name": "Image or Document"
+                }
+            ],
+            "label": "Image or Document",
+            "name": "Input dataset",
+            "outputs": [],
+            "position": {
+                "left": 0,
+                "top": 6.100006103515625
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false, \"tag\": null}",
+            "tool_version": null,
+            "type": "data_input",
+            "uuid": "5a606e20-089a-43ff-a3e3-6faff76af1ee",
+            "when": null,
+            "workflow_outputs": []
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "kraken_binarize",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "image": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Kraken Binarize",
+            "outputs": [
+                {
+                    "name": "pdf_output",
+                    "type": "input"
+                },
+                {
+                    "name": "output",
+                    "type": "png"
+                }
+            ],
+            "position": {
+                "left": 249.79998779296875,
+                "top": 4.9333343505859375
+            },
+            "post_job_actions": {},
+            "tool_id": "kraken_binarize",
+            "tool_state": "{\"border\": \"0.1\", \"escale\": \"1.0\", \"high\": \"90\", \"image\": {\"__class__\": \"ConnectedValue\"}, \"low\": \"5\", \"perc\": \"80\", \"range\": \"20\", \"threshold\": \"0.5\", \"verbose\": \"0\", \"zoom\": \"0.5\", \"__page__\": 0, \"__rerun_remap_job_id__\": null}",
+            "tool_uuid": null,
+            "tool_version": "7.0.2+galaxy0",
+            "type": "tool",
+            "uuid": "ae67ef7f-d1c6-42e0-8c39-220dbd4ef693",
+            "when": null,
+            "workflow_outputs": [
+                {
+                    "label": "Binarised image",
+                    "output_name": "output",
+                    "uuid": "40ad6caa-1a08-4cb5-b104-f25dd92bf0b6"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "kraken_segment",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "image": {
+                    "id": 1,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [],
+            "label": null,
+            "name": "Kraken Segment",
+            "outputs": [
+                {
+                    "name": "output",
+                    "type": "json"
+                }
+            ],
+            "position": {
+                "left": 489.23333740234375,
+                "top": 0
+            },
+            "post_job_actions": {
+                "ChangeDatatypeActionoutput": {
+                    "action_arguments": {
+                        "newtype": "xml"
+                    },
+                    "action_type": "ChangeDatatypeAction",
+                    "output_name": "output"
+                }
+            },
+            "tool_id": "kraken_segment",
+            "tool_state": "{\"image\": {\"__class__\": \"ConnectedValue\"}, \"input_pad\": \"0\", \"output_format\": \"-a\", \"segmenter\": {\"type\": \"baseline\", \"__current_case__\": 0, \"model_name\": \"\"}, \"text_direction\": \"horizontal-lr\", \"verbose\": \"0\", \"__page__\": 0, \"__rerun_remap_job_id__\": null}",
+            "tool_uuid": null,
+            "tool_version": "7.0.2+galaxy0",
+            "type": "tool",
+            "uuid": "0f36f9a8-fb36-4b3e-ae1d-8678b6ee122f",
+            "when": null,
+            "workflow_outputs": [
+                {
+                    "label": "Segmentation",
+                    "output_name": "output",
+                    "uuid": "e500fa1c-adb8-4d00-ba77-f4944746d628"
+                }
+            ]
+        },
+        "3": {
+            "annotation": "",
+            "content_id": "kraken_ocr",
+            "errors": null,
+            "id": 3,
+            "input_connections": {
+                "input_type|image": {
+                    "id": 1,
+                    "output_name": "output"
+                },
+                "input_type|segmentation": {
+                    "id": 2,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool Kraken OCR",
+                    "name": "input_type"
+                },
+                {
+                    "description": "runtime parameter for tool Kraken OCR",
+                    "name": "input_type"
+                }
+            ],
+            "label": null,
+            "name": "Kraken OCR",
+            "outputs": [
+                {
+                    "name": "output",
+                    "type": "txt"
+                }
+            ],
+            "position": {
+                "left": 749.199951171875,
+                "top": 7.1999969482421875
+            },
+            "post_job_actions": {},
+            "tool_id": "kraken_ocr",
+            "tool_state": "{\"base_dir\": \"L\", \"input_type\": {\"source\": \"segmented\", \"__current_case__\": 0, \"image\": {\"__class__\": \"ConnectedValue\"}, \"segmentation\": {\"__class__\": \"ConnectedValue\"}}, \"no_legacy_polygons\": false, \"no_segmentation\": \"\", \"ocr_model\": \"test_ml_models\", \"output_format\": \"-n\", \"pad\": \"16\", \"reorder\": \"--reorder\", \"temperature\": \"1.0\", \"text_direction\": \"horizontal-tb\", \"verbose\": \"0\", \"__page__\": 0, \"__rerun_remap_job_id__\": null}",
+            "tool_uuid": null,
+            "tool_version": "7.0.2+galaxy0",
+            "type": "tool",
+            "uuid": "e55146c6-54f7-4f87-a8e4-8fb04fd9513e",
+            "when": null,
+            "workflow_outputs": []
+        }
+    },
+    "tags": [],
+    "uuid": "19797e6d-34e9-4be4-bef0-6021d5cdd2cf",
+    "version": 9
+}
