@@ -8,6 +8,11 @@
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$image' 'input.${image.ext}' &&
         kraken
+            #if int($verbose) > 0
+                #for $i in range(int($verbose))
+                    -v
+                #end for
+            #end if
             $output_format
             --raise-on-error
             --input 'input.${image.ext}' 'kraken_output'
@@ -33,13 +38,13 @@
         mv kraken_output '$output'
     ]]></command>
     <inputs>
-        <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
+        <param name="image" type="data" format="jpg,png,tif" label="Single image"/>
         <param name="output_format" type="select" label="Output format">
-            <option value="-n" selected="true">Native/default (JSON)</option>
-            <option value="-a">ALTO XML</option>
+            <option value="-a" selected="true">ALTO XML</option>
             <option value="-x">PageXML</option>
             <option value="-h">hOCR</option>
             <option value="-y">abbyyXML</option>
+            <option value="-n">JSON (kraken native format)</option>
         </param>
         <conditional name="segmenter">
             <param name="type" type="select" label="Segmenter type">
@@ -48,7 +53,11 @@
             </param>
 
             <when value="baseline">
-                <param name="model_name" type="text" optional="true" value="" label="Segmentation model name or path" help="Leave empty to use Kraken's internal stock baseline segmentation model. Otherwise provide the name or path of a segmentation model available to Kraken.">
+                <param 
+                    name="model_name" 
+                    type="text" optional="true" 
+                    value="" label="Segmentation model name or path" 
+                    help="Leave empty to use Kraken's internal stock baseline segmentation model. Otherwise provide the name or path of a segmentation model available to Kraken.">
                     <sanitizer>
                         <valid initial="string.ascii_letters,string.digits">
                             <add value="."/>
@@ -75,7 +84,10 @@
                 <param argument="--pad" type="integer" value="0" min="0" label="Padding around segmented regions"/>
             </when>
         </conditional>
-
+        <param 
+            name="verbose" type="integer" min="0" max="3" value="0" label="Verbosity level"
+            help="Increase logging verbosity. 0=default; higher values add one -v flag per level."
+        />
         <param argument="--text-direction" type="select" label="Segmentation text direction">
             <option value="horizontal-lr" selected="true">Horizontal, left-to-right</option>
             <option value="horizontal-rl">Horizontal, right-to-left</option>
@@ -149,19 +161,16 @@
     <help><![CDATA[
         **What it does**
 
-        This tool runs the Kraken `segment` command on one document image and
-        produces Kraken's native segmentation JSON output.
+        This tool runs the kraken `segment` command on one document image and is able
+        to produce segmentation output in various formats, such as ALTO XML, PageXML, 
+        hOCR and abbyyXML. 
 
-        Segmentation can use either the neural baseline segmenter or the legacy
-        box segmenter.
-
-        By default, this tool uses Kraken's neural baseline segmenter with Kraken's
-        internal stock baseline segmentation model. You can also provide the name
-        or path of a segmentation model already available in the Kraken runtime.
+        For the segmentation it is recommended to use the neural baseline segmenter.
+        with Kraken's internal stock segmentation model or you can select an alternative model.
 
         The legacy box segmenter is also available, but it expects a binarised
         image as input. If you do not have one yet, you can obtain it from the
-        Kraken Binarise tool, which is also available in the Kraken-OCR tool suite.
+        kraken binarise tool, which is also available in the htr-kraken tool suite.
 
         **Disclaimer**
 

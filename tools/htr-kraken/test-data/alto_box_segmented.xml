@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://www.loc.gov/standards/alto/ns-v4#"
+    xsi:schemaLocation="http://www.loc.gov/standards/alto/ns-v4# http://www.loc.gov/standards/alto/v4/alto-4-3.xsd">
+    <Description>
+        <MeasurementUnit>pixel</MeasurementUnit>
+        <sourceImageInformation>
+            <fileName>input.png</fileName>
+        </sourceImageInformation>
+        <Processing ID="OCR__3255316d-0512-4164-bc7d-3df09b0ec6a0">
+            <processingCategory>contentGeneration</processingCategory>
+            <processingStepDescription>bounding box segmentation</processingStepDescription>
+            <processingStepSettings>text_direction: horizontal-lr; scale: None; maxcolseps: 2; black_colseps: False; no_hlines: True; pad: 0</processingStepSettings>
+            <processingSoftware>
+                <softwareName>kraken</softwareName>
+                <softwareVersion>7.0.2</softwareVersion>
+            </processingSoftware>
+        </Processing>
+    </Description>
+    <Tags>
+    </Tags>
+    <Layout>
+        <Page WIDTH="1600" HEIGHT="500" PHYSICAL_IMG_NR="0" ID="page_0">
+            <PrintSpace HPOS="0" VPOS="0" WIDTH="1600" HEIGHT="500">
+                <TextBlock ID="textblock_1">
+                    
+                    <TextLine ID="_87812dc9-0b61-4dc3-85c2-6859683e10d3" HPOS="79" VPOS="148" WIDTH="801" HEIGHT="42">
+                        <Shape>
+                            <Polygon POINTS="79 148 880 148 880 190 79 190"/>
+                        </Shape>
+                        <String CONTENT=""/>
+                    </TextLine>
+
+                </TextBlock>
+            </PrintSpace>
+        </Page>
+    </Layout>
+</alto>

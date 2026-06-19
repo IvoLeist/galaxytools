@@ -8,24 +8,26 @@
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$input_type.image' 'input.${input_type.image.ext}' &&
         #if $input_type.source == 'segmented'
-            ln -s '$input_type.segmentation' 'segmentation.json' &&
+            ln -s '$input_type.segmentation' 'segmentation.xml' &&
         #end if
 
         kraken
+            #if int($verbose) > 0
+                #for $i in range(int($verbose))
+                    -v
+                #end for
+            #end if
             $output_format
             --raise-on-error
-            #if $device
-                --device '$device'
-            #end if
-
             #if $input_type.source == 'segmented'
-                --input 'input.${input_type.image.ext}' 'segmentation.json' 'kraken_output'
+                --format-type 'xml'
+                --input 'segmentation.xml' 'kraken_output'
             #else
                 --input 'input.${input_type.image.ext}' 'kraken_output'
             #end if
 
             ocr
-                --model '$ocr_model'
+                --model '$ocr_model.fields.path'
                 --pad '$pad'
                 --temperature '$temperature'
                 $reorder
@@ -43,33 +45,53 @@
     <inputs>
         <conditional name="input_type">
             <param name="source" type="select" label="Input type">
-                <option value="segmented" selected="true">Page image with Kraken segmentation JSON</option>
+                <option value="segmented" selected="true">Pre-segmented image</option>
                 <option value="line">Single line image</option>
             </param>
             <when value="segmented">
-                <param name="image" type="data" format="jpg,png,tif" label="Binarised document image"/>
+                <param 
+                    name="image" 
+                    type="data" 
+                    format="jpg,png,tif" 
+                    label="Image"
+                />
                 <param 
                     name="segmentation" 
                     type="data" 
                     format="xml" 
-                    label="Pre-segmented definitions" 
-                    help="XML file containing pre-segmented text regions could be ALTO, PageXML or abbyyXML"
+                    label="Segmentation XML"
+                    help="File containing pre-segmented text regions, such as ALTO or PAGE"
                 />
             </when>
             <when value="line">
                 <param name="image" type="data" format="jpg,png,tif" label="Line image"/>
-                </when>
+            </when>
         </conditional>
-        <param name="ocr_model" type="select" label="OCR model" help="Optical character recognition model used by Kraken.">
+        <param 
+            name="ocr_model" 
+            type="select" 
+            label="OCR model" 
+            help="Optical character recognition model used by Kraken."
+        >
             <options from_data_table="ml_models">
-                <column name="value" index="3"/>
+                <column name="value" index="0"/>
                 <column name="name" index="1"/>
                 <column name="version" index="2"/>
                 <column name="path" index="3"/>
                 <filter type="sort_by" column="1"/>
             </options>
-            <validator type="no_options" message="Kraken has no built-in OCR model. Please select a model from the dropdown."/>
         </param>
+        <param name="output_format" type="select" label="Output format">
+            <option value="-n" selected="true">Text</option>
+            <option value="-a">ALTO XML</option>
+            <option value="-x">PageXML</option>
+            <option value="-h">hOCR</option>
+            <option value="-y">abbyyXML</option>
+        </param>
+        <param 
+            name="verbose" type="integer" min="0" max="3" value="0" label="Verbosity level"
+            help="Increase logging verbosity. 0=default; higher values add one -v flag per level."
+        />
         <param argument="--pad" type="integer" min="0" value="16" label="Padding to add around line images for OCR"/>
         <param argument="--temperature" type="float" value="1.0" label="Temperature for OCR sampling"/>
         <param name="reorder" type="select" label="Reorder lines with OCR text line reading order model">
@@ -94,22 +116,6 @@
             <option value="vertical-rl">Vertical, right-to-left</option>
         </param>
         <param name="no_legacy_polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Disable legacy polygon output" help="Pass --no-legacy-polygons to Kraken."/>
-        <param name="output_format" type="select" label="Output format">
-            <option value="-n" selected="true">Native/default text</option>
-            <option value="-a">ALTO XML</option>
-            <option value="-x">PageXML</option>
-            <option value="-h">hOCR</option>
-            <option value="-y">abbyyXML</option>
-        </param>
-        <param argument="--device" type="text" optional="true" label="Device" help="Optional PyTorch device such as cpu, cuda:0, or mps.">
-            <sanitizer>
-                <valid initial="string.ascii_letters,string.digits">
-                    <add value=":"/>
-                    <add value="_"/>
-                    <add value="-"/>
-                </valid>
-            </sanitizer>
-        </param>
     </inputs>
     <outputs>
         <data name="output" format="txt" label="${tool.name} on ${on_string}">

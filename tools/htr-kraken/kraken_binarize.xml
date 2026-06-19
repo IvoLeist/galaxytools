@@ -5,26 +5,72 @@
     </macros>
     <expand macro="requirements" />
     <expand macro="creators" />
+
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$image' 'input.${image.ext}' &&
-        kraken
-            -n
-            --raise-on-error
-            --input 'input.${image.ext}' 'kraken_output'
-            binarize
-                --threshold '$threshold'
-                --zoom '$zoom'
-                --escale '$escale'
-                --border '$border'
-                --perc '$perc'
-                --range '$range'
-                --low '$low'
-                --high '$high'
-        &&
-        mv kraken_output '$output'
+
+        #if $image.ext == 'pdf'
+            kraken
+                #if int($verbose) > 0
+                    #for $i in range(int($verbose))
+                        -v
+                    #end for
+                #end if
+                -n
+                --raise-on-error
+                -f pdf
+                -I 'input.${image.ext}'
+                -o .png
+                binarize
+                    --threshold '$threshold'
+                    --zoom '$zoom'
+                    --escale '$escale'
+                    --border '$border'
+                    --perc '$perc'
+                    --range '$range'
+                    --low '$low'
+                    --high '$high'
+                &&
+                echo "PWD: \$(pwd)" >&2 &&
+                echo "Files created:" >&2 &&
+                find .. -maxdepth 3 -type f -print >&2
+        #else
+            kraken
+                #if int($verbose) > 0
+                    #for $i in range(int($verbose))
+                        -v
+                    #end for
+                #end if
+                -n
+                --raise-on-error
+                --input 'input.${image.ext}' 'kraken_output'
+                binarize
+                    --threshold '$threshold'
+                    --zoom '$zoom'
+                    --escale '$escale'
+                    --border '$border'
+                    --perc '$perc'
+                    --range '$range'
+                    --low '$low'
+                    --high '$high'
+            &&
+            mv kraken_output '$output'
+        #end if
     ]]></command>
+
     <inputs>
         <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
+
+        <param
+            name="verbose"
+            type="integer"
+            min="0"
+            max="3"
+            value="0"
+            label="Verbosity level"
+            help="Increase logging verbosity. 0=default; higher values add one -v flag per level."
+        />
+
         <param argument="--threshold" type="float" value="0.5" label="Threshold"/>
         <param argument="--zoom" type="float" value="0.5" label="Zoom for background page estimation"/>
         <param argument="--escale" type="float" value="1.0" label="Scale estimate"/>
@@ -34,9 +80,22 @@
         <param argument="--low" type="integer" min="1" max="100" value="5" label="Percentile for black estimation"/>
         <param argument="--high" type="integer" min="1" max="100" value="90" label="Percentile for white estimation"/>
     </inputs>
+
     <outputs>
-        <data name="output" format="png" label="${tool.name} on ${on_string}"/>
+        <data name="output" format="png" label="${tool.name} on ${on_string}">
+            <filter>image.ext != "pdf"</filter>
+        </data>
+
+        <collection name="pdf_output" type="list" label="${tool.name} pages on ${on_string}">
+            <filter>image.ext == "pdf"</filter>
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;input\.pdf_[0-9]+)\.png$"
+                format="png"
+                visible="true"
+            />
+        </collection>
     </outputs>
+
     <tests>
         <test>
             <param name="image" value="kraken_input.png" ftype="png"/>
@@ -47,6 +106,7 @@
             </output>
         </test>
     </tests>
+
     <help>
     <![CDATA[
         **What it does**
@@ -57,8 +117,19 @@
         Binarization converts the input image into a binary image suitable for later
         segmentation and OCR steps.
 
+        For image inputs, this tool returns a single PNG image.
+
+        For PDF inputs, Kraken is run with PDF batch input mode:
+
+        ```
+        kraken -f pdf -I input.pdf -o .png binarize
+        ```
+
+        The generated binarized page images are returned as a Galaxy list collection.
+
         **License**
         Kraken is licensed under the Apache-2.0 license.
     ]]></help>
+
     <expand macro="citations" />
 </tool>
