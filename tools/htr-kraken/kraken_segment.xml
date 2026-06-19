@@ -8,11 +8,7 @@
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$image' 'input.${image.ext}' &&
         kraken
-            #if int($verbose) > 0
-                #for $i in range(int($verbose))
-                    -v
-                #end for
-            #end if
+            @VERBOSE_FLAGS@
             $output_format
             --raise-on-error
             --input 'input.${image.ext}' 'kraken_output'
@@ -84,10 +80,7 @@
                 <param argument="--pad" type="integer" value="0" min="0" label="Padding around segmented regions"/>
             </when>
         </conditional>
-        <param 
-            name="verbose" type="integer" min="0" max="3" value="0" label="Verbosity level"
-            help="Increase logging verbosity. 0=default; higher values add one -v flag per level."
-        />
+        <expand macro="verbose_param" />
         <param argument="--text-direction" type="select" label="Segmentation text direction">
             <option value="horizontal-lr" selected="true">Horizontal, left-to-right</option>
             <option value="horizontal-rl">Horizontal, right-to-left</option>

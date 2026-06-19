@@ -12,11 +12,7 @@
         #end if
 
         kraken
-            #if int($verbose) > 0
-                #for $i in range(int($verbose))
-                    -v
-                #end for
-            #end if
+            @VERBOSE_FLAGS@
             $output_format
             --raise-on-error
             #if $input_type.source == 'segmented'
@@ -88,10 +84,7 @@
             <option value="-h">hOCR</option>
             <option value="-y">abbyyXML</option>
         </param>
-        <param 
-            name="verbose" type="integer" min="0" max="3" value="0" label="Verbosity level"
-            help="Increase logging verbosity. 0=default; higher values add one -v flag per level."
-        />
+        <expand macro="verbose_param" />
         <param argument="--pad" type="integer" min="0" value="16" label="Padding to add around line images for OCR"/>
         <param argument="--temperature" type="float" value="1.0" label="Temperature for OCR sampling"/>
         <param name="reorder" type="select" label="Reorder lines with OCR text line reading order model">

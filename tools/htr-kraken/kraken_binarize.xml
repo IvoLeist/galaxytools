@@ -9,68 +9,38 @@
     <command detect_errors="exit_code"><![CDATA[
         ln -s '$image' 'input.${image.ext}' &&
 
-        #if $image.ext == 'pdf'
-            kraken
-                #if int($verbose) > 0
-                    #for $i in range(int($verbose))
-                        -v
-                    #end for
-                #end if
-                -n
-                --raise-on-error
+        kraken
+            @VERBOSE_FLAGS@
+            -n
+            --raise-on-error
+
+            #if $image.ext == 'pdf'
                 -f pdf
                 -I 'input.${image.ext}'
                 -o .png
-                binarize
-                    --threshold '$threshold'
-                    --zoom '$zoom'
-                    --escale '$escale'
-                    --border '$border'
-                    --perc '$perc'
-                    --range '$range'
-                    --low '$low'
-                    --high '$high'
-                &&
-                echo "PWD: \$(pwd)" >&2 &&
-                echo "Files created:" >&2 &&
-                find .. -maxdepth 3 -type f -print >&2
-        #else
-            kraken
-                #if int($verbose) > 0
-                    #for $i in range(int($verbose))
-                        -v
-                    #end for
-                #end if
-                -n
-                --raise-on-error
+            #else
                 --input 'input.${image.ext}' 'kraken_output'
-                binarize
-                    --threshold '$threshold'
-                    --zoom '$zoom'
-                    --escale '$escale'
-                    --border '$border'
-                    --perc '$perc'
-                    --range '$range'
-                    --low '$low'
-                    --high '$high'
+            #end if
+
+            binarize
+                --threshold '$threshold'
+                --zoom '$zoom'
+                --escale '$escale'
+                --border '$border'
+                --perc '$perc'
+                --range '$range'
+                --low '$low'
+                --high '$high'
+
+        #if $image.ext != 'pdf'
             &&
             mv kraken_output '$output'
         #end if
     ]]></command>
 
     <inputs>
-        <param name="image" type="data" format="jpg,png,tif,pdf" label="Document image"/>
-
-        <param
-            name="verbose"
-            type="integer"
-            min="0"
-            max="3"
-            value="0"
-            label="Verbosity level"
-            help="Increase logging verbosity. 0=default; higher values add one -v flag per level."
-        />
-
+        <param name="image" type="data" format="jpg,png,tif,pdf" label="Image or Document"/>
+        <expand macro="verbose_param" />
         <param argument="--threshold" type="float" value="0.5" label="Threshold"/>
         <param argument="--zoom" type="float" value="0.5" label="Zoom for background page estimation"/>
         <param argument="--escale" type="float" value="1.0" label="Scale estimate"/>
@@ -91,7 +61,6 @@
             <discover_datasets
                 pattern="(?P&lt;designation&gt;input\.pdf_[0-9]+)\.png$"
                 format="png"
-                visible="true"
             />
         </collection>
     </outputs>
