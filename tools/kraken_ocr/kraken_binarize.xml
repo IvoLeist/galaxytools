@@ -19,7 +19,6 @@
             --low '$low'
             --high '$high'
     ]]></command>
-    <expand macro="env_vars"/>
     <inputs>
         <expand macro="input_param"/>
         <param name="out_ext" type="select" label="Output format">

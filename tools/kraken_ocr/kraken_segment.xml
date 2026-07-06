@@ -75,14 +75,16 @@
                         <option value="history">Model from Galaxy history</option>
                     </param>
                     <when value="default"/>
+
                     <when value="datatable">
                         <param name="model" type="select" label="Segmentation model" help="Select a segmentation model to use. The default is kraken's internal stock model">
-                            <options from_data_table="ml_models">
+                            <options from_data_table="segmentation_ml_models">
                                 <column name="value" index="0"/>
                                 <column name="name" index="1"/>
-                                <column name="version" index="2"/>
-                                <column name="path" index="3"/>
-                                <column name="compatibility" index="4"/>
+                                <column name="variant" index="2"/>
+                                <column name="version" index="3"/>
+                                <column name="path" index="4"/>
+                                <column name="compatibility" index="5"/>
                                 <filter type="sort_by" column="2"/>
                             </options>
                         </param>
@@ -196,6 +198,22 @@
                 </element>
             </output_collection>
         </test>
+        <!-- <test expect_num_outputs="1">
+            <param name="image" value="input.jpg" ftype="jpg"/>
+            <param name="output_format_flag" value="-n"/>
+            <conditional name="segmenter">
+                <param name="type" value="baseline"/>
+                <conditional name="model_source">
+                    <param name="source" value="datatable"/>
+                    <param name="model" value="test_ml_model"/>
+                </conditional>
+            </conditional>
+            <output name="output" ftype="json">
+                <assert_contents>
+                    <has_text text="&quot;type&quot;: &quot;baselines&quot;"/>
+                </assert_contents>
+            </output>
+        </test> -->
         <test expect_num_outputs="1">
             <param name="image" value="input_binarized.png" ftype="png"/>
             <param name="output_format_flag" value="-n"/>
