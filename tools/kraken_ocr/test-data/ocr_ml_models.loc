@@ -1,0 +1,3 @@
+test_ocr_ml_models	CATMuS-Print[tiny]	tiny	v1	${__HERE__}/ml_models/catmus-print-fondue-tiny.mlmodel	kraken
+test_ocr_ml_models2	CATMuS-Print[large]	large	v1	${__HERE__}/ml_models/catmus-print-fondue-large.mlmodel	kraken
+test_line_ocr	greek-english_porson_sophoclesplaysa05campgoog	default	v1	${__HERE__}/ml_models/greek-english_porson_sophoclesplaysa05campgoog.mlmodel	kraken
