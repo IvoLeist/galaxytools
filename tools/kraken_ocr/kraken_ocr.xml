@@ -21,7 +21,7 @@
             ln -s '$input_type.segmentation' 'segmentation.${segmentation_ext}' &&
         #end if
 
-        #if $image.ext != 'pdf'
+        #if $input_type.image.ext != 'pdf'
             ln -s '$output' 'kraken_output.${out_ext}' &&
         #end if
 
@@ -57,7 +57,7 @@
             </param>
             <when value="segmented">
                 <param name="image" type="data" format="jpg,png,tiff" label="Image"/>
-                <param name="segmentation" type="data" format="xml" label="Segmentation XML" help="File containing pre-segmented text regions, such as ALTO or PAGE"/>
+                <param name="segmentation" type="data" format="xml" label="Segmentation XML" help="File containing pre-segmented text regions in ALTO or PAGE format"/>
             </when>
             <when value="line">
                 <param name="image" type="data" format="jpg,png,tiff,pdf" label="Line image"/>
@@ -105,10 +105,6 @@
                     <add value="_"/>
                 </valid>
             </sanitizer>
-        </param>
-        <param name="no_segmentation" type="select" label="No segmentation, treat image as one line">
-            <option value="" selected="true">No</option>
-            <option value="--no-segmentation">Yes</option>
         </param>
         <param argument="--text-direction" type="select" label="OCR text direction">
             <option value="horizontal-tb" selected="true">Horizontal, top-to-bottom</option>
@@ -166,7 +162,7 @@
         <test expect_num_outputs="1">
             <param name="input_type|source" value="segmented"/>
             <param name="input_type|image" value="input_binarized.png" ftype="png"/>
-            <param name="input_type|segmentation" value="input_binarized_seg_alto.xml" ftype="xml"/>
+            <param name="input_type|segmentation" value="input_binarized_seg_page.xml" ftype="xml"/>
             <param name="model_source|source" value="history"/>
             <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
             <param name="output_format_flag" value="-h"/>
@@ -183,26 +179,88 @@
             <param name="model_source|source" value="history"/>
             <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
             <param name="output_format_flag" value="-n"/>
+            <param name="pad" value="0"/>
+            <param name="temperature" value="0.8"/>
+            <param name="reorder" value="--no-reorder"/>
+            <param name="base_dir" value="L"/>
+            <param name="text_direction" value="horizontal-tb"/>
+            <param name="no_legacy_polygons" value="true"/>
             <output name="output" ftype="txt">
                 <assert_contents>
                     <has_text text="HISTOIRE"/>
                 </assert_contents>
             </output>
         </test>
+        <test expect_num_outputs="1">
+            <param name="input_type|source" value="line"/>
+            <param name="input_type|image" value="input_line.tiff" ftype="tiff"/>
+            <param name="model_source|source" value="history"/>
+            <!-- The test model is too large (16.9 MB) to include in the repository.
+                 Thus pulled from a commit-pinned GitHub URL. Zenodo cannot be used here 
+                 because the model is only available inside a ZIP archive. -->
+            <param name="model_source|model" value="greek-english_porson_sophoclesplaysa05campgoog.mlmodel" location="https://raw.githubusercontent.com/AjaxMultiCommentary/OCR-kraken-models/e187951d0ebc669929c866f8a43bc303e849ff45/kraken-models/greek-english_porson_sophoclesplaysa05campgoog/greek-english_porson_sophoclesplaysa05campgoog.mlmodel" ftype="binary"/>
+            <param name="output_format_flag" value="-x"/>
+            <output name="output" ftype="xml">
+                <assert_contents>
+                    <has_text text="PcGts"/>
+                    <has_text text="TextEquiv"/>
+                    <has_text text="Pind."/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <param name="input_type|source" value="line"/>
+            <param name="input_type|image" value="lines_2pages.pdf" ftype="pdf"/>
+            <param name="model_source|source" value="history"/>
+            <param name="model_source|model" value="greek-english_porson_sophoclesplaysa05campgoog.mlmodel" location="https://raw.githubusercontent.com/AjaxMultiCommentary/OCR-kraken-models/e187951d0ebc669929c866f8a43bc303e849ff45/kraken-models/greek-english_porson_sophoclesplaysa05campgoog/greek-english_porson_sophoclesplaysa05campgoog.mlmodel" ftype="binary"/>
+            <param name="output_format_flag" value="-y"/>
+            <output_collection name="pdf_output" type="list">
+                <element name="input.pdf_000000" ftype="xml">
+                    <assert_contents>
+                        <has_text text="FineReader"/>
+                        <has_text text="&gt;P&lt;/charParams&gt;"/>
+                        <has_text text="&gt;i&lt;/charParams&gt;"/>
+                        <has_text text="&gt;n&lt;/charParams&gt;"/>
+                        <has_text text="&gt;d&lt;/charParams&gt;"/>
+                        <has_text text="&gt;.&lt;/charParams&gt;"/>
+                    </assert_contents>
+                </element>
+                <element name="input.pdf_000001" ftype="xml">
+                    <assert_contents>
+                        <has_text text="FineReader"/>
+                        <has_text text="&gt;d&lt;/charParams&gt;"/>
+                        <has_text text="&gt;e&lt;/charParams&gt;"/>
+                        <has_text text="&gt;m&lt;/charParams&gt;"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <test expect_failure="true">
+            <param name="input_type|source" value="line"/>
+            <param name="input_type|image" value="input_2pages.tiff" ftype="tiff"/>
+            <param name="model_source|source" value="history"/>
+            <param name="model_source|model" value="greek-english_porson_sophoclesplaysa05campgoog.mlmodel" location="https://raw.githubusercontent.com/AjaxMultiCommentary/OCR-kraken-models/e187951d0ebc669929c866f8a43bc303e849ff45/kraken-models/greek-english_porson_sophoclesplaysa05campgoog/greek-english_porson_sophoclesplaysa05campgoog.mlmodel" ftype="binary"/>
+            <param name="output_format_flag" value="-n"/>
+            <assert_stderr>
+                <has_text text="multi-page TIF(F) input is not supported"/>
+                <has_text text="Detected 2 pages"/>
+            </assert_stderr>
+        </test>
     </tests>
     <help format="markdown">
 **What it does**
 
-This tool runs only the Kraken OCR recognition step. It is intended to be used
-after image binarisation and page segmentation when you split the Kraken
-workflow into separate Galaxy tools.
+Kraken is a powerful OCR system for all languages. 
+This tool only exposes Kraken's OCR command.
 
-The input can be a Kraken segmentation JSON dataset produced by the standalone
-segmentation tool. If you enable **No segmentation, treat image as one line**,
-the input can instead be a single line image.
+OCR is the process of extracting text from images. 
+Single-line images can be processed directly. 
+For document images, a segmentation file in ALTO or PAGE XML format is required. 
+This additional input file can be produced by the Kraken segmentation tool, 
+which is also available in the Kraken OCR suite.
 
-Native/default output is plain text. ALTO XML, PageXML, hOCR, and abbyyXML are
-available through Kraken's serializer switches.
+The OCR output can be returned in various formats, 
+including ALTO XML, PageXML, hOCR, abbyyXML, and plain text.
 
 **License**
 

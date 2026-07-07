@@ -58,8 +58,8 @@
         <param name="output_format_flag" type="select" label="Output format">
             <option value="-a" selected="true">ALTO XML</option>
             <option value="-x">PageXML</option>
-            <option value="-y">abbyyXML</option>
-            <option value="-h">hOCR</option>
+            <option value="-y">abbyyML (cannot be used as input for kraken ocr)</option>
+            <option value="-h">hOCR (cannot be used as input for kraken ocr)</option>
             <option value="-n">JSON (cannot be used as input for kraken ocr)</option>
         </param>
         <conditional name="segmenter">

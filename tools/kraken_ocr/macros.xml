@@ -36,7 +36,6 @@
     ]]></token>
     <token name="@RUN_KRAKEN_OCR@"><![CDATA[
         kraken
-            -vvv
             $output_format_flag
             --raise-on-error
 
