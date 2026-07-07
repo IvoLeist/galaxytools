@@ -58,8 +58,8 @@
         <param name="output_format_flag" type="select" label="Output format">
             <option value="-a" selected="true">ALTO XML</option>
             <option value="-x">PageXML</option>
-            <option value="-h">hOCR</option>
             <option value="-y">abbyyXML</option>
+            <option value="-h">hOCR</option>
             <option value="-n">JSON (cannot be used as input for kraken ocr)</option>
         </param>
         <conditional name="segmenter">
@@ -72,10 +72,9 @@
                     <param name="source" type="select" label="Model source">
                         <option value="default" selected="true">Kraken internal stock model (BLLA base)</option>
                         <option value="datatable">Models served by Galaxy</option>
-                        <option value="history">Model from Galaxy history</option>
+                        <option value="history">Model from yourGalaxy history</option>
                     </param>
                     <when value="default"/>
-
                     <when value="datatable">
                         <param name="model" type="select" label="Segmentation model" help="Select a segmentation model to use. The default is kraken's internal stock model">
                             <options from_data_table="segmentation_ml_models">
@@ -85,12 +84,12 @@
                                 <column name="version" index="3"/>
                                 <column name="path" index="4"/>
                                 <column name="compatibility" index="5"/>
-                                <filter type="sort_by" column="2"/>
+                                <filter type="sort_by" column="name"/>
                             </options>
                         </param>
                     </when>
                     <when value="history">
-                        <param name="model" type="data" format="binary" label="Segmentation model from history"/>
+                        <param name="model" type="data" format="binary" label="Segmentation model from your history."/>
                     </when>
                 </conditional>
             </when>
