@@ -1,2 +1,2 @@
-#<value>	<model_name>	<variant>	<version>	<path>	<compatibility>
-test_ml_model	BDD-Segmentation-Data	default	v1	${__HERE__}/ml_models/bdd-segmentation-regions-1.0.mlmodel	kraken
+#<value>	<model_family>	<variant>	<version>	<display_name>	<path>	<compatibility>	<sort_key>
+test_doc_seg_model1	BDD-Segmentation-Data	default	v1	BDD-Segmentation-Data	${__HERE__}/ml_models/bdd-segmentation-regions-1.0.mlmodel	kraken	BDD-Segmentation-Data__010

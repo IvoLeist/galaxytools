@@ -35,7 +35,7 @@
             #if $segmenter.type == 'baseline'
                 --baseline
                 #if $segmenter.model_source.source == "datatable"
-                    --model '${segmenter.model_source.model.fields.path}'
+                    --model '${segmenter.model_source.model}'
                 #elif $segmenter.model_source.source == "history"
                     --model '$model_name'
                 #end if
@@ -72,19 +72,18 @@
                     <param name="source" type="select" label="Model source">
                         <option value="default" selected="true">Kraken internal stock model (BLLA base)</option>
                         <option value="datatable">Models served by Galaxy</option>
-                        <option value="history">Model from yourGalaxy history</option>
+                        <option value="history">Model from your Galaxy history</option>
                     </param>
                     <when value="default"/>
                     <when value="datatable">
                         <param name="model" type="select" label="Segmentation model" help="Select a segmentation model to use. The default is kraken's internal stock model">
                             <options from_data_table="segmentation_ml_models">
-                                <column name="value" index="0"/>
-                                <column name="name" index="1"/>
-                                <column name="variant" index="2"/>
-                                <column name="version" index="3"/>
-                                <column name="path" index="4"/>
-                                <column name="compatibility" index="5"/>
-                                <filter type="sort_by" column="name"/>
+                                <!-- returned value: .mlmodel path on your system/on Galaxy servers -->
+                                <column name="value" index="5"/>
+                                <!-- displayed label including variant  -->
+                                <column name="name" index="4"/>
+                                <!-- sorting by explicit sort key: e.g. "BDD-Segmentation-Data__010" -->
+                                <filter type="sort_by" column="7"/>
                             </options>
                         </param>
                     </when>
@@ -197,22 +196,6 @@
                 </element>
             </output_collection>
         </test>
-        <!-- <test expect_num_outputs="1">
-            <param name="image" value="input.jpg" ftype="jpg"/>
-            <param name="output_format_flag" value="-n"/>
-            <conditional name="segmenter">
-                <param name="type" value="baseline"/>
-                <conditional name="model_source">
-                    <param name="source" value="datatable"/>
-                    <param name="model" value="test_ml_model"/>
-                </conditional>
-            </conditional>
-            <output name="output" ftype="json">
-                <assert_contents>
-                    <has_text text="&quot;type&quot;: &quot;baselines&quot;"/>
-                </assert_contents>
-            </output>
-        </test> -->
         <test expect_num_outputs="1">
             <param name="image" value="input_binarized.png" ftype="png"/>
             <param name="output_format_flag" value="-n"/>

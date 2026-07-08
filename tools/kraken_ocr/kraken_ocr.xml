@@ -32,7 +32,7 @@
 
         @RUN_KRAKEN_OCR@
             #if $model_source.source == 'datatable'
-                --model '$model.fields.path'
+                --model '$model'
             #else
                 --model '$model_name'
             #end if
@@ -70,14 +70,13 @@
             </param>
             <when value="datatable">
                 <param name="model" type="select" label="OCR model" help="Optical character recognition model used by Kraken.">
-                    <options from_data_table="ocr_ml_models">
-                        <column name="value" index="0"/>
-                        <column name="name" index="1"/>
-                        <column name="variant" index="2"/>
-                        <column name="version" index="3"/>
-                        <column name="path" index="4"/>
-                        <column name="compatibility" index="5"/>
-                        <filter type="sort_by" column="name"/>
+                   <options from_data_table="ocr_ml_models">
+                        <!-- returned value: .mlmodel path on your system/on Galaxy servers -->
+                        <column name="value" index="5"/>
+                        <!-- displayed label including variant: e.g. "CATMuS-Print [Tiny]" -->
+                        <column name="name" index="4"/>
+                        <!-- sorting by explicit sort key: e.g. "CATMuS-Print__010" -->
+                        <filter type="sort_by" column="7"/>
                     </options>
                 </param>
             </when>
