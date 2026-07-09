@@ -27,20 +27,20 @@
             <option value="tiff">tiff</option>
         </param>
         <!-- in kraken unbounded - tested manually: <0 output completely white; >0.999 output completely black. -->
-        <param argument="--threshold" type="float" value="0.5" min="0" max="0.999" label="Threshold"/>
+        <param argument="--threshold" type="float" value="0.5" min="0" max="0.999" label="Threshold" help="Cutoff used to classify pixels as black or white after background normalization. Increase this value to classify more pixels as black, which can recover faint text but may add noise; decrease it to keep more pixels white, which can reduce noise but may remove faint strokes."/>
         <!-- in kraken unbounded - tested manually: <0.1 turning the right edge into a white line; >1 processing very slow. -->
-        <param argument="--zoom" type="float" value="0.5" min="0.1" max="1.0" label="Zoom for background page estimation"/>
+        <param argument="--zoom" type="float" value="0.5" min="0.1" max="1.0" label="Zoom (scale factor) for background estimation" help="Lower values downsample the page more strongly, producing a smoother and faster background estimate; higher values use more image detail."/>
         <!-- in kraken unbounded - tested manually: <0.02 errors out; >10 processing very slow. -->
-        <param argument="--escale" type="float" value="1.0" min="0.02" max="10.0" label="Scale estimate"/>
+        <param argument="--escale" type="float" value="1.0" min="0.02" max="10.0" label="Estimated character / text scale" help="Increase this value for larger text or broader foreground features; decrease it for smaller text or finer foreground details."/>
         <!-- in kraken unbounded - tested manually: <0 does not change anything; >0.499 errors out. -->
-        <param argument="--border" type="float" value="0.1" min="0" max="0.499" label="Ignore this much of the border"/>
+        <param argument="--border" type="float" value="0.1" min="0" max="0.499" label="Border fraction to ignore" help="Increase this value to exclude more edge artifacts such as scanner borders, shadows, or dark margins; decrease it to include more of the page border."/>
         <!-- in kraken bounded -->
-        <param argument="--perc" type="integer" min="1" max="100" value="80" label="Percentage for filters"/>
+        <param argument="--perc" type="integer" min="1" max="100" value="80" label="Percentile for filters" help="Higher percentile biases the estimate more toward lighter background regions; decrease it to make the estimate less biased toward bright pixels."/>
         <!-- in kraken unbounded - tested manually: <1 errors out; >100 processing very slow. -->
-        <param argument="--range" type="integer" value="20" min="1" max="100" label="Range for filters"/>
+        <param argument="--range" type="integer" value="20" min="1" max="100" label="Range for filters" help="Increase it for a smoother, broader background estimate. Decrease it for stronger local adaptation; results may then be affected more by small variations, noise, or paper texture."/>
         <!-- both low/high are in kraken bounded -->
-        <param argument="--low" type="integer" min="1" max="100" value="5" label="Percentile for black estimation"/>
-        <param argument="--high" type="integer" min="1" max="100" value="90" label="Percentile for white estimation"/>
+        <param argument="--low" type="integer" min="1" max="100" value="5" label="Percentile for black estimation" help="Increase it to use a brighter foreground estimate, which may reduce the influence of very dark noise or artifacts; decrease it to use a darker foreground estimate, which may better preserve dark text strokes but can be more affected by dark speckles or stains."/>
+        <param argument="--high" type="integer" min="1" max="100" value="90" label="Percentile for white estimation" help="Increase it to use a brighter background estimate, which may help with very light page backgrounds but can be affected by bright artifacts or glare; decrease it to use a darker background estimate, which may be more robust to bright artifacts but can reduce contrast for faint text."/>
     </inputs>
     <outputs>
         <data name="output" format="png" label="${tool.name} on ${on_string}">
