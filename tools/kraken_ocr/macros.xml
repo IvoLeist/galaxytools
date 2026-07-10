@@ -1,28 +1,4 @@
 <macros>
-    <token name="@START_GPU_MONITOR@"><![CDATA[
-        (
-            while true; do
-                echo "===== \$(date '+%Y-%m-%d %H:%M:%S') =====";
-                echo "GPU summary:";
-                nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits || true;
-                echo;
-                echo "GPU compute apps:";
-                nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv,noheader,nounits || true;
-                echo;
-                echo "Process details:";
-                for P in \$(nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits 2>/dev/null); do
-                    ps -p "\$P" -o pid,ppid,stat,etime,args || true;
-                done;
-                echo;
-                sleep 1;
-            done
-        ) > gpu_usage.log 2>&1 &
-
-        GPU_MONITOR_PID=\$! &&
-    ]]></token>
-    <token name="@STOP_GPU_MONITOR@"><![CDATA[
-        kill "\$GPU_MONITOR_PID" 2>/dev/null || true &&
-    ]]></token>
     <token name="@TOOL_VERSION@">7.0.2</token>
     <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">25.1</token>
@@ -58,18 +34,11 @@
         esac &&
     ]]></token>
     <token name="@RUN_KRAKEN@"><![CDATA[
-        env | sort > job_environment.txt &&
         @CONFIGURE_KRAKEN_DEVICE@
-        echo "Using KRAKEN_DEVICE=\$KRAKEN_DEVICE" >&2 &&
-
-        @START_GPU_MONITOR@
-        
         kraken
             --device "\$KRAKEN_DEVICE"
-            -vvv
-
-            $output_format_flag
             --raise-on-error
+            $output_format_flag
 
             #if $image.ext == 'pdf'
                 --format-type pdf
@@ -81,14 +50,10 @@
     ]]></token>
     <token name="@RUN_KRAKEN_OCR@"><![CDATA[
         @CONFIGURE_KRAKEN_DEVICE@
-        echo "Using KRAKEN_DEVICE=\$KRAKEN_DEVICE" >&2 &&
-        
         kraken&
-            -vvv
             --device "\$KRAKEN_DEVICE"
-
-            $output_format_flag
             --raise-on-error
+            $output_format_flag
 
             #if $input_type.source == 'segmented'
                 --format-type '${segmentation_ext}'
@@ -112,7 +77,6 @@
     </xml>
     <xml name="creators">
         <creator>
-            <!-- for me the ORCID somehow only renders with the full URL -->
             <person givenName="Ivo Christopher" familyName="Leist" email="leist@informatik.uni-freiburg.de" identifier="https://orcid.org/0000-0002-9772-443X"/>
             <organization name="AI4SOCIAL+" url="https://cordis.europa.eu/project/id/101292886"/>
         </creator>
