@@ -1,9 +1,0 @@
-#This is a sample file distributed with Galaxy that enables tools
-#to use ml_models model folder. The segmentation_ml_models.loc 
-#file needs this format (longer white space is the TAB character):
-
-#<unique_build_id>	<model_family>	<variant>	<version>	<display_name>	<path>	<compatibility>	<sort_key>
-
-# for example:
-
-# seg_mlmodel_1	name    model-size  v1  name[model-size]	/data/seg_mlmodel_1	kraken	name__010

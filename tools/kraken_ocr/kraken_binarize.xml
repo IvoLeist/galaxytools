@@ -2,6 +2,7 @@
     <description>binarise document images</description>
     <macros>
         <import>macros.xml</import>
+        <import>macros_for_testing.xml</import>
     </macros>
     <expand macro="requirements"/>
     <expand macro="creators"/>
@@ -95,8 +96,9 @@
     </tests>
     <help format="markdown">
 **What it does**
-        
-Kraken is a powerful OCR system for all languages. 
+
+kraken is an open-source, turn-key automatic text recognition (ATR) 
+system optimized for historical and non-Latin script writing.
 This tool only exposes Kraken's binarization command.
 
 Binarization converts the input image/document into a binary image 

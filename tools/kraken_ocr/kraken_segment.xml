@@ -2,6 +2,7 @@
     <description>segment text regions and lines in document images</description>
     <macros>
         <import>macros.xml</import>
+        <import>macros_for_testing.xml</import>
     </macros>
     <expand macro="requirements"/>
     <expand macro="creators"/>
@@ -51,10 +52,6 @@
             #end if
             --text-direction '$text_direction'
             --input-pad '$input_pad'
-        ;
-        KRAKEN_EXIT_CODE=\$?;
-        @STOP_GPU_MONITOR@
-        exit \$KRAKEN_EXIT_CODE
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
@@ -81,13 +78,15 @@
                     <when value="default"/>
                     <when value="datatable">
                         <param name="model" type="select" label="Segmentation model" help="Select a segmentation model to use. The default is kraken's internal stock model">
-                            <options from_data_table="segmentation_ml_models">
+                            <options from_data_table="ml_models">
                                 <!-- returned value: .mlmodel path on your system/on Galaxy servers -->
                                 <column name="value" index="5"/>
                                 <!-- displayed label including variant  -->
                                 <column name="name" index="4"/>
+                                <!-- filter by model type -->
+                                <filter type="static_value" column="6" value="segmentation"/>
                                 <!-- sorting by explicit sort key: e.g. "BDD-Segmentation-Data__010" -->
-                                <filter type="sort_by" column="7"/>
+                                <filter type="sort_by" column="8"/>
                             </options>
                         </param>
                     </when>
@@ -157,27 +156,28 @@
         <test expect_num_outputs="1">
             <param name="image" value="input.jpg" ftype="jpg"/>
             <param name="output_format_flag" value="-n"/>
-            <param name="segmenter|type" value="baseline"/>
+            <conditional name="segmenter">
+                <param name="type" value="baseline"/>
+            </conditional>
             <output name="output" ftype="json">
                 <assert_contents>
-                    <has_text text="&quot;type&quot;: &quot;baselines&quot;"/>
-                    <has_text text="&quot;imagename&quot;: &quot;input.jpg&quot;"/>
+                    <has_json_property_with_text property="type" text="baselines" />
+                    <has_json_property_with_text property="imagename" text="input.jpg" />
                 </assert_contents>
             </output>
         </test>
         <test expect_num_outputs="1">
             <param name="image" value="input.jpg" ftype="jpg"/>
             <param name="output_format_flag" value="-a"/>
-            <param name="segmenter|type" value="baseline"/>
-            <param name="segmenter|model_source|source" value="history"/>
-            <!-- The test model is too large (4.3 MB) to include in the repository.
-                 Thus pulled from a commit-pinned GitHub URL. Zenodo cannot be used here 
-                 because the model is only available inside a ZIP archive. -->
-            <param name="segmenter|model_source|model" value="bdd-segmentation-regions-1.0.mlmodel" location="https://raw.githubusercontent.com/michaelscho/bdd-segmentation-regions/b818488376bc635f1a121427979b33dfc11638df/bdd-segmentation-regions-1.0.mlmodel" ftype="binary"/>
+            <conditional name="segmenter">
+                <param name="type" value="baseline"/>
+                <expand macro="get_segmentation_model"/>
+            </conditional>
             <output name="output" ftype="alto">
                 <assert_contents>
-                    <has_text text="alto"/>
-                    <has_text text="bdd-segmentation-regions-1.0.mlmodel"/>
+                    <xml_element path=".//@NS_ALTO@processingStepSettings">
+                        <has_text text="model: @SEG_MODEL_FILENAME@"/>
+                    </xml_element>
                 </assert_contents>
             </output>
         </test>
@@ -190,12 +190,12 @@
             <output_collection name="pdf_output" type="list" count="2">
                 <element name="input.pdf_000000" ftype="json">
                     <assert_contents>
-                        <has_text text="&quot;type&quot;: &quot;baselines&quot;"/>
+                        <has_json_property_with_text property="type" text="baselines" />
                     </assert_contents>
                 </element>
                 <element name="input.pdf_000001" ftype="json">
                     <assert_contents>
-                        <has_text text="&quot;type&quot;: &quot;baselines&quot;"/>
+                        <has_json_property_with_text property="type" text="baselines" />
                     </assert_contents>
                 </element>
             </output_collection>
@@ -215,8 +215,8 @@
             <param name="input_pad" value="0"/>
             <output name="output" ftype="json">
                 <assert_contents>
-                    <has_text text="&quot;type&quot;: &quot;bbox&quot;"/>
-                    <has_text text="&quot;text_direction&quot;: &quot;vertical-lr&quot;"/>
+                    <has_json_property_with_text property="type" text="bbox" />
+                    <has_json_property_with_text property="text_direction" text="vertical-lr" />
                 </assert_contents>
             </output>
         </test>
@@ -228,7 +228,9 @@
             </conditional>
             <output name="output" ftype="alto">
                 <assert_contents>
-                    <has_text text="alto"/>
+                    <xml_element path=".//@NS_ALTO@processingStepDescription">
+                        <has_text text="bounding box segmentation"/>
+                    </xml_element>
                 </assert_contents>
             </output>
         </test>
@@ -271,12 +273,16 @@
     <help format="markdown">
 **What it does**
 
-Kraken is a powerful OCR system for all languages. 
+kraken is an open-source, turn-key automatic text recognition (ATR) 
+system optimized for historical and non-Latin script writing,
 This tool only exposes Kraken's segmentation command.
 
 Segmentation is the process of detecting text regions and lines in document images,
 which is a prerequisite for the OCR step. Output can be in various formats, 
-such as ALTO XML, PageXML, hOCR and abbyyXML.
+such as [ALTO](https://www.loc.gov/standards/alto/), 
+[PageXML](https://github.com/PRImA-Research-Lab/PAGE-XML/wiki), 
+[hOCR](https://kba.github.io/hocr-spec/1.2/) and 
+[abbyyXML](https://support.abbyy.com/hc/en-us/articles/360017270080-Output-XML-document).
 
 It is recommended to use the neural baseline segmenter with Kraken's internal stock 
 segmentation model or you can select an alternative model. Next to it,

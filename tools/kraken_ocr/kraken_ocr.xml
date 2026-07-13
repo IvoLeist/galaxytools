@@ -2,6 +2,7 @@
     <description>extract text from segmented or line document images</description>
     <macros>
         <import>macros.xml</import>
+        <import>macros_for_testing.xml</import>
     </macros>
     <expand macro="requirements"/>
     <expand macro="creators"/>
@@ -72,13 +73,15 @@
             </param>
             <when value="datatable">
                 <param name="model" type="select" label="OCR model" help="Optical character recognition model used by Kraken.">
-                    <options from_data_table="ocr_ml_models">
+                    <options from_data_table="ml_models">
                         <!-- returned value: .mlmodel path on your system/on Galaxy servers -->
                         <column name="value" index="5"/>
                         <!-- displayed label including variant: e.g. "CATMuS-Print [Tiny]" -->
                         <column name="name" index="4"/>
+                        <!-- filter by model type -->
+                        <filter type="static_value" column="6" value="ocr"/>
                         <!-- sorting by explicit sort key: e.g. "CATMuS-Print__010" -->
-                        <filter type="sort_by" column="7"/>
+                        <filter type="sort_by" column="8"/>
                     </options>
                 </param>
             </when>
@@ -93,8 +96,13 @@
             <option value="-h">hOCR</option>
             <option value="-n">Text</option>
         </param>
+        <!-- in kraken unbounded - tested manually: <1 does not make sense;  no real slowdown for larger values
+                arbitrary decision to put 1000 as the maximum -->
         <param argument="--pad" type="integer" min="0" max="1000" value="16" label="Padding to add around line images for OCR" help="Increase it to give the model more margin around tightly cropped text; decrease it to add less extra whitespace. This reduces the image area processed by OCR."/>
-        <param argument="--temperature" type="float" min="0.0" max="10.0" value="1.0" label="Temperature for OCR sampling" help="Decrease it for more conservative, deterministic predictions; increase it to allow more random predictions, which may introduce more character substitutions or noisy text."/>
+        <!-- in kraken unbounded - tested manually: <0 produces meaningless text, 0 returns an empty output; 
+             and values <10 flatten confidence scores toward similarly low values (about 0.005 with
+             the tested Model CATmuS-Print large) -->
+        <param argument="--temperature" type="float" min="0.01" max="10.0" value="1.0" label="Softmax temperature" help="Control how sharply Kraken converts model scores into character probabilities. Values below 1.0 produce sharper confidence scores, while values above 1.0 produce flatter confidence scores. The recognized text usually remains unchanged."/>
         <conditional name="reordering">
             <param name="mode" type="select" label="Output text in logical order using the Unicode BiDi algorithm" help="Choose whether Kraken should apply the Unicode bidirectional (BiDi) text algorithm to produce OCR output in logical text order. This is mainly relevant for right-to-left text, or mixed left-to-right and right-to-left text.">
                 <option value="--reorder" selected="true">Yes</option>
@@ -145,71 +153,28 @@
         </collection>
     </outputs>
     <tests>
+        <expand macro="test_bidi_reordering"
+            mode="--reorder"
+                bidi_value="True">
+            <param name="base_dir" value="auto"/>
+        </expand>
+
+        <expand macro="test_bidi_reordering"
+                mode="--reorder"
+                bidi_value="L">
+            <param name="base_dir" value="L"/>
+        </expand>
+
+        <expand macro="test_bidi_reordering"
+            mode="--no-reorder"
+            bidi_value="False"
+        />
         <test expect_num_outputs="1">
-            <param name="input_type|source" value="segmented"/>
-            <param name="input_type|image" value="input_binarized.png" ftype="png"/>
-            <param name="input_type|segmentation" value="input_binarized_seg_alto.xml" ftype="alto"/>
-            <param name="model_source|source" value="history"/>
-            <!-- The test model is too large (21.8 MB) to include in the repository.
-                 Thus pulled from a commit-pinned GitHub URL. Zenodo cannot be used here 
-                 because the model is only available inside a ZIP archive. -->
-            <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
-            <param name="reordering|mode" value="--reorder"/>
-            <param name="reordering|base_dir" value="auto"/>
-            <param name="output_format_flag" value="-a"/>
-            <output name="output" ftype="alto">
-                <assert_contents>
-                    <has_text text="alto"/>
-                    <has_text text="catmus-print-fondue-large.mlmodel"/>
-                    <has_text text="bidi_reordering: True"/>
-                </assert_contents>
-            </output>
-        </test>
-        <test expect_num_outputs="1">
-            <param name="input_type|source" value="segmented"/>
-            <param name="input_type|image" value="input_binarized.png" ftype="png"/>
-            <param name="input_type|segmentation" value="input_binarized_seg_alto.xml" ftype="alto"/>
-            <param name="model_source|source" value="history"/>
-            <!-- The test model is too large (21.8 MB) to include in the repository.
-                 Thus pulled from a commit-pinned GitHub URL. Zenodo cannot be used here 
-                 because the model is only available inside a ZIP archive. -->
-            <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
-            <param name="reordering|mode" value="--reorder"/>
-            <param name="reordering|base_dir" value="L"/>
-            <param name="output_format_flag" value="-a"/>
-            <output name="output" ftype="alto">
-                <assert_contents>
-                    <has_text text="alto"/>
-                    <has_text text="catmus-print-fondue-large.mlmodel"/>
-                    <has_text text="bidi_reordering: L"/>
-                </assert_contents>
-            </output>
-        </test>
-        <test expect_num_outputs="1">
-            <param name="input_type|source" value="segmented"/>
-            <param name="input_type|image" value="input_binarized.png" ftype="png"/>
-            <param name="input_type|segmentation" value="input_binarized_seg_alto.xml" ftype="alto"/>
-            <param name="model_source|source" value="history"/>
-            <!-- The test model is too large (21.8 MB) to include in the repository.
-                 Thus pulled from a commit-pinned GitHub URL. Zenodo cannot be used here 
-                 because the model is only available inside a ZIP archive. -->
-            <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
-            <param name="reordering|mode" value="--no-reorder"/>
-            <param name="output_format_flag" value="-a"/>
-            <output name="output" ftype="alto">
-                <assert_contents>
-                    <has_text text="alto"/>
-                    <has_text text="catmus-print-fondue-large.mlmodel"/>
-                    <has_text text="bidi_reordering: False"/>
-                </assert_contents>
-            </output>
-        </test>
-        <test expect_num_outputs="1">
-            <param name="input_type|source" value="segmented"/>
-            <param name="input_type|image" value="input_binarized.png" ftype="png"/>
-            <param name="input_type|segmentation" value="input_binarized_seg_page.xml" ftype="xml"/>
-            <param name="model_source|source" value="history"/>
-            <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
+            <expand macro="use_presegmented_input"
+                segmentation="input_binarized_seg_page.xml"
+                segmentation_ftype="xml"
+            />
+            <expand macro="get_document_ocr_model"/>
             <param name="output_format_flag" value="-h"/>
             <output name="output" ftype="html">
                 <assert_contents>
@@ -218,11 +183,11 @@
             </output>
         </test>
         <test expect_num_outputs="1">
-            <param name="input_type|source" value="segmented"/>
-            <param name="input_type|image" value="input_binarized.png" ftype="png"/>
-            <param name="input_type|segmentation" value="input_binarized_seg_alto.xml" ftype="xml"/>
-            <param name="model_source|source" value="history"/>
-            <param name="model_source|model" value="catmus-print-fondue-large.mlmodel" location="https://raw.githubusercontent.com/obtic-sorbonne/Toolbox-site/e88184cbb0ed99ea80c63fd606d7764fbd22df72/kraken_models/ocr_models/catmus-print-fondue-large.mlmodel" ftype="binary"/>
+            <expand macro="use_presegmented_input"
+                segmentation="input_binarized_seg_alto.xml"
+                segmentation_ftype="alto"
+            />
+            <expand macro="get_document_ocr_model"/>
             <param name="output_format_flag" value="-n"/>
             <param name="pad" value="0"/>
             <param name="temperature" value="0.8"/>
@@ -235,54 +200,53 @@
             </output>
         </test>
         <test expect_num_outputs="1">
-            <param name="input_type|source" value="line"/>
-            <param name="input_type|image" value="input_line.tiff" ftype="tiff"/>
-            <param name="model_source|source" value="history"/>
-            <!-- The test model is too large (16.9 MB) to include in the repository.
-                 Thus pulled from a commit-pinned GitHub URL. Zenodo cannot be used here 
-                 because the model is only available inside a ZIP archive. -->
-            <param name="model_source|model" value="greek-english_porson_sophoclesplaysa05campgoog.mlmodel" location="https://raw.githubusercontent.com/AjaxMultiCommentary/OCR-kraken-models/e187951d0ebc669929c866f8a43bc303e849ff45/kraken-models/greek-english_porson_sophoclesplaysa05campgoog/greek-english_porson_sophoclesplaysa05campgoog.mlmodel" ftype="binary"/>
+            <expand macro="use_line_input"
+                image="input_line.tiff"
+                image_ftype="tiff"
+            />
+            <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-x"/>
             <output name="output" ftype="xml">
                 <assert_contents>
-                    <has_text text="PcGts"/>
-                    <has_text text="TextEquiv"/>
-                    <has_text text="Pind."/>
+                    <xml_element path="./@NS_PAGE@Page"/>
+                    <xml_element path=".//@NS_PAGE@TextEquiv/@NS_PAGE@Unicode[.='Pind.']"/>
                 </assert_contents>
             </output>
         </test>
         <test expect_num_outputs="1">
-            <param name="input_type|source" value="line"/>
-            <param name="input_type|image" value="lines_2pages.pdf" ftype="pdf"/>
-            <param name="model_source|source" value="history"/>
-            <param name="model_source|model" value="greek-english_porson_sophoclesplaysa05campgoog.mlmodel" location="https://raw.githubusercontent.com/AjaxMultiCommentary/OCR-kraken-models/e187951d0ebc669929c866f8a43bc303e849ff45/kraken-models/greek-english_porson_sophoclesplaysa05campgoog/greek-english_porson_sophoclesplaysa05campgoog.mlmodel" ftype="binary"/>
+            <expand macro="use_line_input"
+                image="lines_2pages.pdf"
+                image_ftype="pdf"
+            />
+            <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-y"/>
             <output_collection name="pdf_output" type="list">
                 <element name="input.pdf_000000" ftype="xml">
                     <assert_contents>
-                        <has_text text="FineReader"/>
-                        <has_text text="&gt;P&lt;/charParams&gt;"/>
-                        <has_text text="&gt;i&lt;/charParams&gt;"/>
-                        <has_text text="&gt;n&lt;/charParams&gt;"/>
-                        <has_text text="&gt;d&lt;/charParams&gt;"/>
-                        <has_text text="&gt;.&lt;/charParams&gt;"/>
+                        <xml_element path="./@NS_ABBYY@page"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='P']"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='i']"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='n']"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='d']"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='.']"/>
                     </assert_contents>
                 </element>
                 <element name="input.pdf_000001" ftype="xml">
                     <assert_contents>
-                        <has_text text="FineReader"/>
-                        <has_text text="&gt;d&lt;/charParams&gt;"/>
-                        <has_text text="&gt;e&lt;/charParams&gt;"/>
-                        <has_text text="&gt;m&lt;/charParams&gt;"/>
+                        <xml_element path="./@NS_ABBYY@page"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='d']"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='e']"/>
+                        <xml_element path=".//@NS_ABBYY@charParams[.='m']"/>
                     </assert_contents>
                 </element>
             </output_collection>
         </test>
         <test expect_failure="true">
-            <param name="input_type|source" value="line"/>
-            <param name="input_type|image" value="input_2pages.tiff" ftype="tiff"/>
-            <param name="model_source|source" value="history"/>
-            <param name="model_source|model" value="greek-english_porson_sophoclesplaysa05campgoog.mlmodel" location="https://raw.githubusercontent.com/AjaxMultiCommentary/OCR-kraken-models/e187951d0ebc669929c866f8a43bc303e849ff45/kraken-models/greek-english_porson_sophoclesplaysa05campgoog/greek-english_porson_sophoclesplaysa05campgoog.mlmodel" ftype="binary"/>
+            <expand macro="use_line_input"
+                image="input_2pages.tiff"
+                image_ftype="tiff"
+            />
+            <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-n"/>
             <assert_stderr>
                 <has_text text="multi-page TIF(F) input is not supported"/>
@@ -293,17 +257,22 @@
     <help format="markdown">
 **What it does**
 
-Kraken is a powerful OCR system for all languages. 
+kraken is an open-source, turn-key automatic text recognition (ATR) 
+system optimized for historical and non-Latin script writing.
 This tool only exposes Kraken's OCR command.
 
 OCR is the process of extracting text from images. 
 Single-line images can be processed directly. 
-For document images, a segmentation file in ALTO or PAGE XML format is required. 
+For document images, a segmentation file in [ALTO](https://www.loc.gov/standards/alto/) 
+or [PAGE XML](https://github.com/PRImA-Research-Lab/PAGE-XML/wiki) format is required. 
 This additional input file can be produced by the Kraken segmentation tool, 
 which is also available in the Kraken OCR suite.
 
 The OCR output can be returned in various formats, 
-including ALTO XML, PageXML, hOCR, abbyyXML, and plain text.
+including [ALTO](https://www.loc.gov/standards/alto/), 
+[PageXML](https://github.com/PRImA-Research-Lab/PAGE-XML/wiki), 
+[hOCR](https://kba.github.io/hocr-spec/1.2/), 
+[abbyyXML](https://support.abbyy.com/hc/en-us/articles/360017270080-Output-XML-document), and plain text.
 
 **License**
 

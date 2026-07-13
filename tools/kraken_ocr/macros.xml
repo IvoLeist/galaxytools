@@ -21,20 +21,8 @@
             } &&
         #end if
     ]]></token>
-    <token name="@CONFIGURE_KRAKEN_DEVICE@"><![CDATA[
-        KRAKEN_DEVICE="\${KRAKEN_DEVICE:-cpu}" &&
-
-        case "\$KRAKEN_DEVICE" in
-            cpu|cuda|cuda:[0-9]*)
-                ;;
-            *)
-                echo "Invalid KRAKEN_DEVICE: '\$KRAKEN_DEVICE'. Use cpu, cuda, cuda:0, cuda:1, ..." >&2
-                exit 1
-                ;;
-        esac &&
-    ]]></token>
     <token name="@RUN_KRAKEN@"><![CDATA[
-        @CONFIGURE_KRAKEN_DEVICE@
+        KRAKEN_DEVICE="\${KRAKEN_DEVICE:-cpu}" &&
         kraken
             --device "\$KRAKEN_DEVICE"
             --raise-on-error
@@ -49,8 +37,8 @@
             #end if
     ]]></token>
     <token name="@RUN_KRAKEN_OCR@"><![CDATA[
-        @CONFIGURE_KRAKEN_DEVICE@
-        kraken&
+        KRAKEN_DEVICE="\${KRAKEN_DEVICE:-cpu}" &&
+        kraken
             --device "\$KRAKEN_DEVICE"
             --raise-on-error
             $output_format_flag
@@ -95,17 +83,7 @@
             <citation type="doi">10.16995/dscn.8094</citation>
         </citations>
     </xml>
-    <macro name="input_param">
+     <macro name="input_param">
         <param name="image" type="data" format="jpg,png,tiff,pdf" label="Image or document" help="multipage is only supported for PDF inputs"/>
-    </macro>
-    <macro name="assert_binarized" token_width="1456" token_height="2184">
-        <assert_contents>
-            <has_image_channels channels="1"/>
-            <has_image_width width="@WIDTH@"/>
-            <has_image_height height="@HEIGHT@"/>
-        </assert_contents>
-    </macro>
-    <macro name="assert_binarized_pdf">
-        <expand macro="assert_binarized" width="1875" height="2812"/>
     </macro>
 </macros>
