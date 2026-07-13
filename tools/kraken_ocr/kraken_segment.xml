@@ -161,8 +161,8 @@
             </conditional>
             <output name="output" ftype="json">
                 <assert_contents>
-                    <has_json_property_with_text property="type" text="baselines" />
-                    <has_json_property_with_text property="imagename" text="input.jpg" />
+                    <has_json_property_with_text property="type" text="baselines"/>
+                    <has_json_property_with_text property="imagename" text="input.jpg"/>
                 </assert_contents>
             </output>
         </test>
@@ -190,12 +190,12 @@
             <output_collection name="pdf_output" type="list" count="2">
                 <element name="input.pdf_000000" ftype="json">
                     <assert_contents>
-                        <has_json_property_with_text property="type" text="baselines" />
+                        <has_json_property_with_text property="type" text="baselines"/>
                     </assert_contents>
                 </element>
                 <element name="input.pdf_000001" ftype="json">
                     <assert_contents>
-                        <has_json_property_with_text property="type" text="baselines" />
+                        <has_json_property_with_text property="type" text="baselines"/>
                     </assert_contents>
                 </element>
             </output_collection>
@@ -215,8 +215,8 @@
             <param name="input_pad" value="0"/>
             <output name="output" ftype="json">
                 <assert_contents>
-                    <has_json_property_with_text property="type" text="bbox" />
-                    <has_json_property_with_text property="text_direction" text="vertical-lr" />
+                    <has_json_property_with_text property="type" text="bbox"/>
+                    <has_json_property_with_text property="text_direction" text="vertical-lr"/>
                 </assert_contents>
             </output>
         </test>

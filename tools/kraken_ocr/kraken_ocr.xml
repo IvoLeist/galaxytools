@@ -153,27 +153,15 @@
         </collection>
     </outputs>
     <tests>
-        <expand macro="test_bidi_reordering"
-            mode="--reorder"
-                bidi_value="True">
+        <expand macro="test_bidi_reordering" mode="--reorder" bidi_value="True">
             <param name="base_dir" value="auto"/>
         </expand>
-
-        <expand macro="test_bidi_reordering"
-                mode="--reorder"
-                bidi_value="L">
+        <expand macro="test_bidi_reordering" mode="--reorder" bidi_value="L">
             <param name="base_dir" value="L"/>
         </expand>
-
-        <expand macro="test_bidi_reordering"
-            mode="--no-reorder"
-            bidi_value="False"
-        />
+        <expand macro="test_bidi_reordering" mode="--no-reorder" bidi_value="False"/>
         <test expect_num_outputs="1">
-            <expand macro="use_presegmented_input"
-                segmentation="input_binarized_seg_page.xml"
-                segmentation_ftype="xml"
-            />
+            <expand macro="use_presegmented_input" segmentation="input_binarized_seg_page.xml" segmentation_ftype="xml"/>
             <expand macro="get_document_ocr_model"/>
             <param name="output_format_flag" value="-h"/>
             <output name="output" ftype="html">
@@ -183,10 +171,7 @@
             </output>
         </test>
         <test expect_num_outputs="1">
-            <expand macro="use_presegmented_input"
-                segmentation="input_binarized_seg_alto.xml"
-                segmentation_ftype="alto"
-            />
+            <expand macro="use_presegmented_input" segmentation="input_binarized_seg_alto.xml" segmentation_ftype="alto"/>
             <expand macro="get_document_ocr_model"/>
             <param name="output_format_flag" value="-n"/>
             <param name="pad" value="0"/>
@@ -200,10 +185,7 @@
             </output>
         </test>
         <test expect_num_outputs="1">
-            <expand macro="use_line_input"
-                image="input_line.tiff"
-                image_ftype="tiff"
-            />
+            <expand macro="use_line_input" image="input_line.tiff" image_ftype="tiff"/>
             <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-x"/>
             <output name="output" ftype="xml">
@@ -214,10 +196,7 @@
             </output>
         </test>
         <test expect_num_outputs="1">
-            <expand macro="use_line_input"
-                image="lines_2pages.pdf"
-                image_ftype="pdf"
-            />
+            <expand macro="use_line_input" image="lines_2pages.pdf" image_ftype="pdf"/>
             <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-y"/>
             <output_collection name="pdf_output" type="list">
@@ -242,10 +221,7 @@
             </output_collection>
         </test>
         <test expect_failure="true">
-            <expand macro="use_line_input"
-                image="input_2pages.tiff"
-                image_ftype="tiff"
-            />
+            <expand macro="use_line_input" image="input_2pages.tiff" image_ftype="tiff"/>
             <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-n"/>
             <assert_stderr>

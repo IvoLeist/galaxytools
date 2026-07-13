@@ -83,7 +83,7 @@
             <citation type="doi">10.16995/dscn.8094</citation>
         </citations>
     </xml>
-     <macro name="input_param">
+    <macro name="input_param">
         <param name="image" type="data" format="jpg,png,tiff,pdf" label="Image or document" help="multipage is only supported for PDF inputs"/>
     </macro>
 </macros>
