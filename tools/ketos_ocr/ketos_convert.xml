@@ -1,0 +1,39 @@
+<tool id="ketos_convert" name="Ketos Convert" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>convert or combine checkpoints and weights</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        ketos
+            @GLOBAL_ARGS@
+            convert
+            --output converted_model.weights
+            --weights-format '$weights_format'
+            #for $item in $checkpoints
+                '$item'
+            #end for
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <param name="checkpoints" type="data" multiple="true" format="binary,safetensors" label="Checkpoints or weights to convert/combine"/>
+        <param argument="--weights-format" type="select" label="Output weights format">
+            <option value="safetensors" selected="true">safetensors</option>
+            <option value="coreml">coreml</option>
+        </param>
+    </inputs>
+    <outputs>
+        <data name="model" format="binary" from_work_dir="converted_model.weights" label="${tool.name} on ${on_string}: converted model"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true">
+            <param name="checkpoints" value="README.md" ftype="binary"/>
+        </test>
+    </tests>
+    <help format="markdown">
+Converts one or more Ketos checkpoints/weights into a weights file, or combines related models into a single weights file.
+    </help>
+    <expand macro="citations"/>
+</tool>

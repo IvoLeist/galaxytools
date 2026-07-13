@@ -1,0 +1,109 @@
+<tool id="ketos_train" name="Ketos Train" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>train or fine-tune recognition models</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        mkdir -p model logs &&
+        ketos
+            @GLOBAL_ARGS@
+            train
+            @TRAINING_ARGS@
+            --format-type '$format_type'
+            #if str($spec).strip()
+                --spec '$spec'
+            #end if
+            #if str($pad).strip()
+                --pad '$pad'
+            #end if
+            #if str($normalization).strip()
+                --normalization '$normalization'
+            #end if
+            #if str($normalize_whitespace).strip()
+                $normalize_whitespace
+            #end if
+            #if str($codec).strip()
+                --codec '$codec'
+            #end if
+            #if str($resize).strip()
+                --resize '$resize'
+            #end if
+            #if str($freeze_backbone).strip()
+                --freeze-backbone '$freeze_backbone'
+            #end if
+            #if str($reorder).strip()
+                $reorder
+                #if $reorder == '--reorder'
+                    --base-dir '$base_dir'
+                #end if
+            #end if
+            #if $legacy_polygons
+                --legacy-polygons
+            #end if
+            @TRAINING_DATA_ARGS@
+            @GROUND_TRUTH_ARGS@
+            > training_report.txt 2>&1 &&
+        cat training_report.txt &&
+        @CAPTURE_TRAINING_OUTPUTS@
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <expand macro="training_data_inputs"/>
+        <expand macro="training_inputs"/>
+        <param argument="--format-type" type="select" label="Training data format">
+            <option value="path" selected="true">Path/image pairs</option>
+            <option value="xml">XML</option>
+            <option value="alto">ALTO</option>
+            <option value="page">PageXML</option>
+            <option value="binary">Compiled binary dataset</option>
+        </param>
+        <param argument="--spec" type="text" optional="true" label="VGSL network specification"/>
+        <param argument="--pad" type="integer" optional="true" min="0" label="Left/right padding around lines"/>
+        <param argument="--normalization" type="select" optional="true" label="Ground-truth Unicode normalization">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="NFD">NFD</option>
+            <option value="NFKD">NFKD</option>
+            <option value="NFC">NFC</option>
+            <option value="NFKC">NFKC</option>
+        </param>
+        <param name="normalize_whitespace" type="select" label="Normalize Unicode whitespace">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="--normalize-whitespace">Enable</option>
+            <option value="--no-normalize-whitespace">Disable</option>
+        </param>
+        <param argument="--codec" type="data" format="json" optional="true" label="Codec JSON definition"/>
+        <param argument="--resize" type="select" optional="true" label="Codec/output layer resizing">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="union">union</option>
+            <option value="new">new</option>
+            <option value="fail">fail</option>
+            <option value="add">add (deprecated)</option>
+            <option value="both">both (deprecated)</option>
+        </param>
+        <param argument="--freeze-backbone" type="integer" optional="true" min="0" label="Samples to keep the backbone frozen"/>
+        <param name="reorder" type="select" label="Apply Unicode BiDi reordering">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="--reorder">Enable</option>
+            <option value="--no-reorder">Disable</option>
+        </param>
+        <param argument="--base-dir" type="select" label="Base text direction for BiDi reordering">
+            <option value="auto" selected="true">Auto</option>
+            <option value="L">Left-to-right</option>
+            <option value="R">Right-to-left</option>
+        </param>
+        <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
+    </inputs>
+    <outputs>
+        <expand macro="training_outputs"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true"/>
+    </tests>
+    <help format="markdown">
+Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end.
+    </help>
+    <expand macro="citations"/>
+</tool>

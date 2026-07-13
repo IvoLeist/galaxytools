@@ -1,0 +1,83 @@
+<tool id="ketos_segtrain" name="Ketos Segtrain" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>train segmentation models</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        mkdir -p model logs &&
+        ketos
+            @GLOBAL_ARGS@
+            segtrain
+            @TRAINING_ARGS@
+            --format-type '$format_type'
+            #if str($spec).strip()
+                --spec '$spec'
+            #end if
+            #if str($line_width).strip()
+                --line-width '$line_width'
+            #end if
+            #if str($bl_tol).strip()
+                --bl-tol '$bl_tol'
+            #end if
+            #if str($pad_x).strip() and str($pad_y).strip()
+                --pad '$pad_x' '$pad_y'
+            #end if
+            #if str($resize).strip()
+                --resize '$resize'
+            #end if
+            #if str($baseline_position).strip()
+                $baseline_position
+            #end if
+            #if str($dice_weight).strip()
+                --dice-weight '$dice_weight'
+            #end if
+            @TRAINING_DATA_ARGS@
+            @GROUND_TRUTH_ARGS@
+            > training_report.txt 2>&1 &&
+        cat training_report.txt &&
+        @CAPTURE_TRAINING_OUTPUTS@
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <expand macro="training_data_inputs"/>
+        <expand macro="training_inputs"/>
+        <param argument="--format-type" type="select" label="Training data format">
+            <option value="xml" selected="true">XML</option>
+            <option value="alto">ALTO</option>
+            <option value="page">PageXML</option>
+        </param>
+        <param argument="--spec" type="text" optional="true" label="VGSL baseline labeling network specification"/>
+        <param argument="--line-width" type="integer" optional="true" min="1" label="Target baseline height after scaling"/>
+        <param argument="--bl-tol" type="float" optional="true" min="0" label="Baseline detection metric tolerance in pixels"/>
+        <param name="pad_x" type="integer" optional="true" min="0" label="Horizontal page padding"/>
+        <param name="pad_y" type="integer" optional="true" min="0" label="Vertical page padding"/>
+        <param argument="--resize" type="select" optional="true" label="Output layer resizing">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="union">union</option>
+            <option value="new">new</option>
+            <option value="fail">fail</option>
+            <option value="add">add (deprecated)</option>
+            <option value="both">both (deprecated)</option>
+        </param>
+        <param name="baseline_position" type="select" label="Baseline annotation position">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="--baseline">Baseline</option>
+            <option value="--topline">Topline</option>
+            <option value="--centerline">Centerline</option>
+        </param>
+        <param argument="--dice-weight" type="float" optional="true" min="0" label="Dice loss weight"/>
+    </inputs>
+    <outputs>
+        <expand macro="training_outputs"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true"/>
+    </tests>
+    <help format="markdown">
+Trains a Kraken baseline/region segmentation model from ALTO or PageXML style document annotations.
+    </help>
+    <expand macro="citations"/>
+</tool>

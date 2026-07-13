@@ -1,0 +1,50 @@
+<tool id="ketos_publish" name="Ketos Publish" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>publish a model to the Zenodo-backed Kraken model repository</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        ketos
+            @GLOBAL_ARGS@
+            publish
+            --access-token '$access_token'
+            #if str($metadata).strip()
+                --metadata '$metadata'
+            #end if
+            #if str($doi).strip()
+                --doi '$doi'
+            #end if
+            #if $private
+                --private
+            #else
+                --public
+            #end if
+            '$model'
+            > publish_report.txt 2>&1 &&
+        cat publish_report.txt
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <param name="model" type="data" format="binary,safetensors" label="Model to publish"/>
+        <param argument="--metadata" type="data" format="yaml,txt" optional="true" label="Model card metadata file"/>
+        <param argument="--access-token" type="text" label="Zenodo access token"/>
+        <param argument="--doi" type="text" optional="true" label="Existing DOI to update"/>
+        <param argument="--private" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Private upload without community inclusion request"/>
+    </inputs>
+    <outputs>
+        <data name="report" format="txt" from_work_dir="publish_report.txt" label="${tool.name} on ${on_string}: report"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true">
+            <param name="model" value="README.md" ftype="binary"/>
+            <param name="access_token" value="dummy-token"/>
+        </test>
+    </tests>
+    <help format="markdown">
+Publishes or updates a Kraken model in the Zenodo-backed model repository. This command contacts Zenodo and requires a valid access token.
+    </help>
+    <expand macro="citations"/>
+</tool>

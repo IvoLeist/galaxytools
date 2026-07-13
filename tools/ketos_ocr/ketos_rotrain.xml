@@ -1,0 +1,55 @@
+<tool id="ketos_rotrain" name="Ketos Rotrain" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>train reading order models</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        mkdir -p model logs &&
+        ketos
+            @GLOBAL_ARGS@
+            rotrain
+            @TRAINING_ARGS@
+            --format-type '$format_type'
+            --level '$level'
+            #if str($reading_order).strip()
+                --reading-order '$reading_order'
+            #end if
+            #if str($class_mapping_from_ckpt).strip()
+                --class-mapping-from-ckpt '$class_mapping_from_ckpt'
+            #end if
+            @TRAINING_DATA_ARGS@
+            @GROUND_TRUTH_ARGS@
+            > training_report.txt 2>&1 &&
+        cat training_report.txt &&
+        @CAPTURE_TRAINING_OUTPUTS@
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <expand macro="training_data_inputs"/>
+        <expand macro="training_inputs"/>
+        <param argument="--format-type" type="select" label="Training data format">
+            <option value="xml" selected="true">XML</option>
+            <option value="alto">ALTO</option>
+            <option value="page">PageXML</option>
+        </param>
+        <param argument="--level" type="select" label="Reading-order level">
+            <option value="baselines" selected="true">Baselines</option>
+            <option value="regions">Regions</option>
+        </param>
+        <param argument="--reading-order" type="text" optional="true" label="Named reading order"/>
+        <param argument="--class-mapping-from-ckpt" type="data" format="binary" optional="true" label="Segmentation checkpoint to read class mapping from"/>
+    </inputs>
+    <outputs>
+        <expand macro="training_outputs"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true"/>
+    </tests>
+    <help format="markdown">
+Trains a Kraken reading-order model for baseline-level or region-level ordering. The model can be merged into a segmentation model with Ketos Convert or Ketos Roadd.
+    </help>
+    <expand macro="citations"/>
+</tool>

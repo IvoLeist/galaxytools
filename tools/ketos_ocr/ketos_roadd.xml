@@ -1,0 +1,35 @@
+<tool id="ketos_roadd" name="Ketos Roadd" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>add a reading order model to a segmentation model</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        ketos
+            @GLOBAL_ARGS@
+            roadd
+            --seg-model '$seg_model'
+            --ro-model '$ro_model'
+            --output combined_seg.mlmodel
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <param argument="--seg-model" type="data" format="binary" label="Segmentation model"/>
+        <param argument="--ro-model" type="data" format="binary" label="Reading order model"/>
+    </inputs>
+    <outputs>
+        <data name="model" format="binary" from_work_dir="combined_seg.mlmodel" label="${tool.name} on ${on_string}: combined segmentation model"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true">
+            <param name="seg_model" value="README.md" ftype="binary"/>
+            <param name="ro_model" value="README.md" ftype="binary"/>
+        </test>
+    </tests>
+    <help format="markdown">
+Adds a reading-order model into an existing segmentation model. This is the deprecated compatibility command; for newer safetensors workflows, prefer Ketos Convert.
+    </help>
+    <expand macro="citations"/>
+</tool>

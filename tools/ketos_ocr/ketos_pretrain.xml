@@ -1,0 +1,80 @@
+<tool id="ketos_pretrain" name="Ketos Pretrain" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>unsupervised pretraining for recognition models</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        mkdir -p model logs &&
+        ketos
+            @GLOBAL_ARGS@
+            pretrain
+            @TRAINING_ARGS@
+            --format-type '$format_type'
+            #if str($spec).strip()
+                --spec '$spec'
+            #end if
+            #if str($pad).strip()
+                --pad '$pad'
+            #end if
+            #if str($linetype).strip()
+                --linetype '$linetype'
+            #end if
+            #if str($mask_width).strip()
+                --mask-width '$mask_width'
+            #end if
+            #if str($mask_probability).strip()
+                --mask-probability '$mask_probability'
+            #end if
+            #if str($num_negatives).strip()
+                --num-negatives '$num_negatives'
+            #end if
+            #if str($logit_temp).strip()
+                --logit-temp '$logit_temp'
+            #end if
+            #if $legacy_polygons
+                --legacy-polygons
+            #end if
+            @TRAINING_DATA_ARGS@
+            @GROUND_TRUTH_ARGS@
+            > training_report.txt 2>&1 &&
+        cat training_report.txt &&
+        @CAPTURE_TRAINING_OUTPUTS@
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <expand macro="global_inputs"/>
+        <expand macro="training_data_inputs"/>
+        <expand macro="training_inputs"/>
+        <param argument="--format-type" type="select" label="Training data format">
+            <option value="path" selected="true">Path/image pairs</option>
+            <option value="xml">XML</option>
+            <option value="alto">ALTO</option>
+            <option value="page">PageXML</option>
+            <option value="binary">Compiled binary dataset</option>
+        </param>
+        <param argument="--spec" type="text" optional="true" label="VGSL network specification"/>
+        <param argument="--pad" type="integer" optional="true" min="0" label="Left/right padding around lines"/>
+        <param argument="--linetype" type="select" optional="true" label="Line geometry type">
+            <option value="" selected="true">Use Ketos default</option>
+            <option value="baselines">Baselines</option>
+            <option value="bbox">Bounding boxes</option>
+        </param>
+        <param argument="--mask-width" type="integer" optional="true" min="1" label="Mask width"/>
+        <param argument="--mask-probability" type="float" optional="true" min="0" max="1" label="Mask probability"/>
+        <param argument="--num-negatives" type="integer" optional="true" min="1" label="Negative samples"/>
+        <param argument="--logit-temp" type="float" optional="true" min="0" label="Contrastive loss logit temperature"/>
+        <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
+    </inputs>
+    <outputs>
+        <expand macro="training_outputs"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true"/>
+    </tests>
+    <help format="markdown">
+Runs Ketos' unsupervised recognition pretraining command. The resulting checkpoint can be used as a starting point for supervised `ketos train` runs.
+    </help>
+    <expand macro="citations"/>
+</tool>
