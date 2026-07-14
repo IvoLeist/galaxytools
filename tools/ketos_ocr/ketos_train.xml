@@ -12,28 +12,28 @@
             train
             @TRAINING_ARGS@
             --format-type '$format_type'
-            #if str($spec).strip()
+            #if str($spec).strip() and str($spec) != 'None'
                 --spec '$spec'
             #end if
-            #if str($pad).strip()
+            #if str($pad).strip() and str($pad) != 'None'
                 --pad '$pad'
             #end if
-            #if str($normalization).strip()
+            #if str($normalization).strip() and str($normalization) != 'None'
                 --normalization '$normalization'
             #end if
-            #if str($normalize_whitespace).strip()
+            #if str($normalize_whitespace).strip() and str($normalize_whitespace) != 'None'
                 $normalize_whitespace
             #end if
-            #if str($codec).strip()
+            #if str($codec).strip() and str($codec) != 'None'
                 --codec '$codec'
             #end if
-            #if str($resize).strip()
+            #if str($resize).strip() and str($resize) != 'None'
                 --resize '$resize'
             #end if
-            #if str($freeze_backbone).strip()
+            #if str($freeze_backbone).strip() and str($freeze_backbone) != 'None'
                 --freeze-backbone '$freeze_backbone'
             #end if
-            #if str($reorder).strip()
+            #if str($reorder).strip() and str($reorder) != 'None'
                 $reorder
                 #if $reorder == '--reorder'
                     --base-dir '$base_dir'
@@ -100,7 +100,45 @@
         <expand macro="training_outputs"/>
     </outputs>
     <tests>
-        <test expect_failure="true"/>
+        <test expect_failure="true">
+            <param name="ground_truth" value="ground_truth.txt" ftype="txt"/>
+            <param name="evaluation_data" value="manifest.txt" ftype="txt"/>
+            <section name="global">
+                <param name="device" value="cpu"/>
+                <param name="threads" value="1"/>
+                <param name="seed" value="7"/>
+                <param name="deterministic" value="--deterministic"/>
+            </section>
+            <section name="train_opts">
+                <param name="batch_size" value="2"/>
+                <param name="quit" value="fixed"/>
+                <param name="epochs" value="1"/>
+                <param name="lrate" value="0.001"/>
+                <param name="augment" value="--no-augment"/>
+            </section>
+            <param name="format_type" value="path"/>
+            <param name="pad" value="4"/>
+            <param name="normalization" value="NFC"/>
+            <param name="normalize_whitespace" value="--normalize-whitespace"/>
+            <param name="resize" value="fail"/>
+            <param name="reorder" value="--no-reorder"/>
+            <assert_command>
+                <has_text text="train"/>
+                <has_text text="--device 'cpu'"/>
+                <has_text text="--threads '1'"/>
+                <has_text text="--seed '7'"/>
+                <has_text text="--deterministic"/>
+                <has_text text="--batch-size '2'"/>
+                <has_text text="--quit 'fixed'"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--format-type 'path'"/>
+                <has_text text="--pad '4'"/>
+                <has_text text="--normalization 'NFC'"/>
+                <has_text text="--normalize-whitespace"/>
+                <has_text text="--resize 'fail'"/>
+                <has_text text="--no-reorder"/>
+            </assert_command>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end.

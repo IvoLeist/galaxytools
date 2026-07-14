@@ -11,7 +11,7 @@
             segtest
             --model '$model'
             --format-type '$format_type'
-            #if str($bl_tol).strip()
+            #if str($bl_tol).strip() and str($bl_tol) != 'None'
                 --bl-tol '$bl_tol'
             #end if
             --test-class-mapping-mode '$test_class_mapping_mode'
@@ -43,7 +43,20 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="model" value="README.md" ftype="binary"/>
+            <param name="model" value="invalid_model.bin" ftype="binary"/>
+            <param name="test_set" value="page.xml" ftype="xml"/>
+            <param name="test_data" value="manifest.txt" ftype="txt"/>
+            <param name="format_type" value="page"/>
+            <param name="bl_tol" value="4"/>
+            <param name="test_class_mapping_mode" value="canonical"/>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--model"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--bl-tol '4.0'"/>
+                <has_text text="--test-class-mapping-mode 'canonical'"/>
+                <has_text text="--test-data"/>
+            </assert_command>
         </test>
     </tests>
     <help format="markdown">

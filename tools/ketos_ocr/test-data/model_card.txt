@@ -1,0 +1,12 @@
+---
+summary: Test model card
+authors:
+  - name: Galaxy Test
+license: Apache-2.0
+language:
+  - eng
+script:
+  - Latn
+---
+
+Test model card body.

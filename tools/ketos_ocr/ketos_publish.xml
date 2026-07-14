@@ -10,10 +10,10 @@
             @GLOBAL_ARGS@
             publish
             --access-token '$access_token'
-            #if str($metadata).strip()
+            #if str($metadata).strip() and str($metadata) != 'None'
                 --metadata '$metadata'
             #end if
-            #if str($doi).strip()
+            #if str($doi).strip() and str($doi) != 'None'
                 --doi '$doi'
             #end if
             #if $private
@@ -39,8 +39,18 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="model" value="README.md" ftype="binary"/>
+            <param name="model" value="invalid_model.bin" ftype="binary"/>
+            <param name="metadata" value="model_card.txt" ftype="txt"/>
             <param name="access_token" value="dummy-token"/>
+            <param name="doi" value="10.5281/zenodo.0000000"/>
+            <param name="private" value="true"/>
+            <assert_command>
+                <has_text text="publish"/>
+                <has_text text="--access-token"/>
+                <has_text text="--metadata"/>
+                <has_text text="--doi '10.5281/zenodo.0000000'"/>
+                <has_text text="--private"/>
+            </assert_command>
         </test>
     </tests>
     <help format="markdown">

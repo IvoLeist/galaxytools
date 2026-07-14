@@ -12,25 +12,25 @@
             segtrain
             @TRAINING_ARGS@
             --format-type '$format_type'
-            #if str($spec).strip()
+            #if str($spec).strip() and str($spec) != 'None'
                 --spec '$spec'
             #end if
-            #if str($line_width).strip()
+            #if str($line_width).strip() and str($line_width) != 'None'
                 --line-width '$line_width'
             #end if
-            #if str($bl_tol).strip()
+            #if str($bl_tol).strip() and str($bl_tol) != 'None'
                 --bl-tol '$bl_tol'
             #end if
-            #if str($pad_x).strip() and str($pad_y).strip()
+            #if str($pad_x).strip() and str($pad_x) != 'None' and str($pad_y).strip() and str($pad_y) != 'None'
                 --pad '$pad_x' '$pad_y'
             #end if
-            #if str($resize).strip()
+            #if str($resize).strip() and str($resize) != 'None'
                 --resize '$resize'
             #end if
-            #if str($baseline_position).strip()
+            #if str($baseline_position).strip() and str($baseline_position) != 'None'
                 $baseline_position
             #end if
-            #if str($dice_weight).strip()
+            #if str($dice_weight).strip() and str($dice_weight) != 'None'
                 --dice-weight '$dice_weight'
             #end if
             @TRAINING_DATA_ARGS@
@@ -74,7 +74,34 @@
         <expand macro="training_outputs"/>
     </outputs>
     <tests>
-        <test expect_failure="true"/>
+        <test expect_failure="true">
+            <param name="ground_truth" value="page.xml" ftype="xml"/>
+            <param name="evaluation_data" value="manifest.txt" ftype="txt"/>
+            <section name="train_opts">
+                <param name="batch_size" value="1"/>
+                <param name="quit" value="fixed"/>
+                <param name="epochs" value="1"/>
+                <param name="schedule" value="constant"/>
+            </section>
+            <param name="format_type" value="page"/>
+            <param name="line_width" value="8"/>
+            <param name="bl_tol" value="4"/>
+            <param name="pad_x" value="1"/>
+            <param name="pad_y" value="2"/>
+            <param name="resize" value="fail"/>
+            <param name="baseline_position" value="--centerline"/>
+            <param name="dice_weight" value="0.4"/>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--line-width '8'"/>
+                <has_text text="--bl-tol '4.0'"/>
+                <has_text text="--pad '1' '2'"/>
+                <has_text text="--resize 'fail'"/>
+                <has_text text="--centerline"/>
+                <has_text text="--dice-weight '0.4'"/>
+            </assert_command>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken baseline/region segmentation model from ALTO or PageXML style document annotations.

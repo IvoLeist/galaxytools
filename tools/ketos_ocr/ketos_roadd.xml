@@ -24,8 +24,14 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="seg_model" value="README.md" ftype="binary"/>
-            <param name="ro_model" value="README.md" ftype="binary"/>
+            <param name="seg_model" value="invalid_model.bin" ftype="binary"/>
+            <param name="ro_model" value="invalid_model.bin" ftype="binary"/>
+            <assert_command>
+                <has_text text="roadd"/>
+                <has_text text="--seg-model"/>
+                <has_text text="--ro-model"/>
+                <has_text text="--output combined_seg.mlmodel"/>
+            </assert_command>
         </test>
     </tests>
     <help format="markdown">

@@ -13,10 +13,10 @@
             @TRAINING_ARGS@
             --format-type '$format_type'
             --level '$level'
-            #if str($reading_order).strip()
+            #if str($reading_order).strip() and str($reading_order) != 'None'
                 --reading-order '$reading_order'
             #end if
-            #if str($class_mapping_from_ckpt).strip()
+            #if str($class_mapping_from_ckpt).strip() and str($class_mapping_from_ckpt) != 'None'
                 --class-mapping-from-ckpt '$class_mapping_from_ckpt'
             #end if
             @TRAINING_DATA_ARGS@
@@ -46,7 +46,28 @@
         <expand macro="training_outputs"/>
     </outputs>
     <tests>
-        <test expect_failure="true"/>
+        <test expect_failure="true">
+            <param name="ground_truth" value="page.xml" ftype="xml"/>
+            <param name="training_data" value="manifest.txt" ftype="txt"/>
+            <section name="train_opts">
+                <param name="batch_size" value="2"/>
+                <param name="quit" value="fixed"/>
+                <param name="epochs" value="1"/>
+                <param name="lag" value="1"/>
+            </section>
+            <param name="format_type" value="page"/>
+            <param name="level" value="regions"/>
+            <param name="reading_order" value="region_implicit"/>
+            <assert_command>
+                <has_text text="rotrain"/>
+                <has_text text="--batch-size '2'"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--lag '1'"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--level 'regions'"/>
+                <has_text text="--reading-order 'region_implicit'"/>
+            </assert_command>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken reading-order model for baseline-level or region-level ordering. The model can be merged into a segmentation model with Ketos Convert or Ketos Roadd.

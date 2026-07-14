@@ -26,22 +26,22 @@
         </citations>
     </xml>
     <token name="@GLOBAL_ARGS@"><![CDATA[
-        #if str($global.config).strip()
+        #if str($global.config).strip() and str($global.config) != 'None'
             --config '$global.config'
         #end if
-        #if str($global.device).strip()
+        #if str($global.device).strip() and str($global.device) != 'None'
             --device '$global.device'
         #end if
-        #if str($global.precision).strip()
+        #if str($global.precision).strip() and str($global.precision) != 'None'
             --precision '$global.precision'
         #end if
-        #if str($global.workers).strip()
+        #if str($global.workers).strip() and str($global.workers) != 'None'
             --workers '$global.workers'
         #end if
-        #if str($global.threads).strip()
+        #if str($global.threads).strip() and str($global.threads) != 'None'
             --threads '$global.threads'
         #end if
-        #if str($global.seed).strip()
+        #if str($global.seed).strip() and str($global.seed) != 'None'
             --seed '$global.seed'
         #end if
         $global.deterministic
@@ -49,7 +49,7 @@
     <token name="@TRAINING_ARGS@"><![CDATA[
         --output model
         --weights-format safetensors
-        #if str($train_opts.batch_size).strip()
+        #if str($train_opts.batch_size).strip() and str($train_opts.batch_size) != 'None'
             --batch-size '$train_opts.batch_size'
         #end if
         #if $train_opts.initialization.source == 'load'
@@ -57,67 +57,67 @@
         #elif $train_opts.initialization.source == 'resume'
             --resume '$train_opts.initialization.checkpoint'
         #end if
-        #if str($train_opts.freq).strip()
+        #if str($train_opts.freq).strip() and str($train_opts.freq) != 'None'
             --freq '$train_opts.freq'
         #end if
-        #if str($train_opts.quit).strip()
+        #if str($train_opts.quit).strip() and str($train_opts.quit) != 'None'
             --quit '$train_opts.quit'
         #end if
-        #if str($train_opts.epochs).strip()
+        #if str($train_opts.epochs).strip() and str($train_opts.epochs) != 'None'
             --epochs '$train_opts.epochs'
         #end if
-        #if str($train_opts.min_epochs).strip()
+        #if str($train_opts.min_epochs).strip() and str($train_opts.min_epochs) != 'None'
             --min-epochs '$train_opts.min_epochs'
         #end if
-        #if str($train_opts.lag).strip()
+        #if str($train_opts.lag).strip() and str($train_opts.lag) != 'None'
             --lag '$train_opts.lag'
         #end if
-        #if str($train_opts.min_delta).strip()
+        #if str($train_opts.min_delta).strip() and str($train_opts.min_delta) != 'None'
             --min-delta '$train_opts.min_delta'
         #end if
-        #if str($train_opts.optimizer).strip()
+        #if str($train_opts.optimizer).strip() and str($train_opts.optimizer) != 'None'
             --optimizer '$train_opts.optimizer'
         #end if
-        #if str($train_opts.lrate).strip()
+        #if str($train_opts.lrate).strip() and str($train_opts.lrate) != 'None'
             --lrate '$train_opts.lrate'
         #end if
-        #if str($train_opts.momentum).strip()
+        #if str($train_opts.momentum).strip() and str($train_opts.momentum) != 'None'
             --momentum '$train_opts.momentum'
         #end if
-        #if str($train_opts.weight_decay).strip()
+        #if str($train_opts.weight_decay).strip() and str($train_opts.weight_decay) != 'None'
             --weight-decay '$train_opts.weight_decay'
         #end if
-        #if str($train_opts.gradient_clip_val).strip()
+        #if str($train_opts.gradient_clip_val).strip() and str($train_opts.gradient_clip_val) != 'None'
             --gradient-clip-val '$train_opts.gradient_clip_val'
         #end if
-        #if str($train_opts.accumulate_grad_batches).strip()
+        #if str($train_opts.accumulate_grad_batches).strip() and str($train_opts.accumulate_grad_batches) != 'None'
             --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
         #end if
-        #if str($train_opts.warmup).strip()
+        #if str($train_opts.warmup).strip() and str($train_opts.warmup) != 'None'
             --warmup '$train_opts.warmup'
         #end if
-        #if str($train_opts.schedule).strip()
+        #if str($train_opts.schedule).strip() and str($train_opts.schedule) != 'None'
             --schedule '$train_opts.schedule'
         #end if
-        #if str($train_opts.gamma).strip()
+        #if str($train_opts.gamma).strip() and str($train_opts.gamma) != 'None'
             --gamma '$train_opts.gamma'
         #end if
-        #if str($train_opts.step_size).strip()
+        #if str($train_opts.step_size).strip() and str($train_opts.step_size) != 'None'
             --step-size '$train_opts.step_size'
         #end if
-        #if str($train_opts.sched_patience).strip()
+        #if str($train_opts.sched_patience).strip() and str($train_opts.sched_patience) != 'None'
             --sched-patience '$train_opts.sched_patience'
         #end if
-        #if str($train_opts.cos_max).strip()
+        #if str($train_opts.cos_max).strip() and str($train_opts.cos_max) != 'None'
             --cos-max '$train_opts.cos_max'
         #end if
-        #if str($train_opts.cos_min_lr).strip()
+        #if str($train_opts.cos_min_lr).strip() and str($train_opts.cos_min_lr) != 'None'
             --cos-min-lr '$train_opts.cos_min_lr'
         #end if
-        #if str($train_opts.partition).strip()
+        #if str($train_opts.partition).strip() and str($train_opts.partition) != 'None'
             --partition '$train_opts.partition'
         #end if
-        #if str($train_opts.augment).strip()
+        #if str($train_opts.augment).strip() and str($train_opts.augment) != 'None'
             $train_opts.augment
         #end if
         #if $train_opts.logger.enabled == 'yes'
@@ -127,25 +127,35 @@
     ]]></token>
     <token name="@GROUND_TRUTH_ARGS@"><![CDATA[
         #for $item in $ground_truth
-            '$item'
+            #if str($item).strip() and str($item) != 'None'
+                '$item'
+            #end if
         #end for
     ]]></token>
     <token name="@TRAINING_DATA_ARGS@"><![CDATA[
         #for $item in $training_data
-            --training-data '$item'
+            #if str($item).strip() and str($item) != 'None'
+                --training-data '$item'
+            #end if
         #end for
         #for $item in $evaluation_data
-            --evaluation-data '$item'
+            #if str($item).strip() and str($item) != 'None'
+                --evaluation-data '$item'
+            #end if
         #end for
     ]]></token>
     <token name="@TEST_SET_ARGS@"><![CDATA[
         #for $item in $test_set
-            '$item'
+            #if str($item).strip() and str($item) != 'None'
+                '$item'
+            #end if
         #end for
     ]]></token>
     <token name="@TEST_DATA_ARGS@"><![CDATA[
         #for $item in $test_data
-            --test-data '$item'
+            #if str($item).strip() and str($item) != 'None'
+                --test-data '$item'
+            #end if
         #end for
     ]]></token>
     <token name="@CAPTURE_TRAINING_OUTPUTS@"><![CDATA[

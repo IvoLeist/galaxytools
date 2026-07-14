@@ -12,7 +12,9 @@
             --output converted_model.weights
             --weights-format '$weights_format'
             #for $item in $checkpoints
-                '$item'
+                #if str($item).strip() and str($item) != 'None'
+                    '$item'
+                #end if
             #end for
     ]]></command>
     <expand macro="env_vars"/>
@@ -29,7 +31,13 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="checkpoints" value="README.md" ftype="binary"/>
+            <param name="checkpoints" value="invalid_model.bin" ftype="binary"/>
+            <param name="weights_format" value="coreml"/>
+            <assert_command>
+                <has_text text="convert"/>
+                <has_text text="--output converted_model.weights"/>
+                <has_text text="--weights-format 'coreml'"/>
+            </assert_command>
         </test>
     </tests>
     <help format="markdown">

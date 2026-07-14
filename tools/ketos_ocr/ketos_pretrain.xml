@@ -12,25 +12,25 @@
             pretrain
             @TRAINING_ARGS@
             --format-type '$format_type'
-            #if str($spec).strip()
+            #if str($spec).strip() and str($spec) != 'None'
                 --spec '$spec'
             #end if
-            #if str($pad).strip()
+            #if str($pad).strip() and str($pad) != 'None'
                 --pad '$pad'
             #end if
-            #if str($linetype).strip()
+            #if str($linetype).strip() and str($linetype) != 'None'
                 --linetype '$linetype'
             #end if
-            #if str($mask_width).strip()
+            #if str($mask_width).strip() and str($mask_width) != 'None'
                 --mask-width '$mask_width'
             #end if
-            #if str($mask_probability).strip()
+            #if str($mask_probability).strip() and str($mask_probability) != 'None'
                 --mask-probability '$mask_probability'
             #end if
-            #if str($num_negatives).strip()
+            #if str($num_negatives).strip() and str($num_negatives) != 'None'
                 --num-negatives '$num_negatives'
             #end if
-            #if str($logit_temp).strip()
+            #if str($logit_temp).strip() and str($logit_temp) != 'None'
                 --logit-temp '$logit_temp'
             #end if
             #if $legacy_polygons
@@ -71,7 +71,36 @@
         <expand macro="training_outputs"/>
     </outputs>
     <tests>
-        <test expect_failure="true"/>
+        <test expect_failure="true">
+            <param name="ground_truth" value="ground_truth.txt" ftype="txt"/>
+            <param name="training_data" value="manifest.txt" ftype="txt"/>
+            <section name="train_opts">
+                <param name="batch_size" value="2"/>
+                <param name="quit" value="fixed"/>
+                <param name="epochs" value="1"/>
+                <param name="augment" value="--augment"/>
+            </section>
+            <param name="format_type" value="path"/>
+            <param name="pad" value="4"/>
+            <param name="linetype" value="bbox"/>
+            <param name="mask_width" value="2"/>
+            <param name="mask_probability" value="0.2"/>
+            <param name="num_negatives" value="3"/>
+            <param name="logit_temp" value="0.1"/>
+            <param name="legacy_polygons" value="true"/>
+            <assert_command>
+                <has_text text="pretrain"/>
+                <has_text text="--batch-size '2'"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--format-type 'path'"/>
+                <has_text text="--linetype 'bbox'"/>
+                <has_text text="--mask-width '2'"/>
+                <has_text text="--mask-probability '0.2'"/>
+                <has_text text="--num-negatives '3'"/>
+                <has_text text="--logit-temp '0.1'"/>
+                <has_text text="--legacy-polygons"/>
+            </assert_command>
+        </test>
     </tests>
     <help format="markdown">
 Runs Ketos' unsupervised recognition pretraining command. The resulting checkpoint can be used as a starting point for supervised `ketos train` runs.

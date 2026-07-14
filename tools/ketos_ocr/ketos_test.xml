@@ -11,19 +11,19 @@
             test
             --model '$model'
             --format-type '$format_type'
-            #if str($batch_size).strip()
+            #if str($batch_size).strip() and str($batch_size) != 'None'
                 --batch-size '$batch_size'
             #end if
-            #if str($pad).strip()
+            #if str($pad).strip() and str($pad) != 'None'
                 --pad '$pad'
             #end if
-            #if str($normalization).strip()
+            #if str($normalization).strip() and str($normalization) != 'None'
                 --normalization '$normalization'
             #end if
-            #if str($normalize_whitespace).strip()
+            #if str($normalize_whitespace).strip() and str($normalize_whitespace) != 'None'
                 $normalize_whitespace
             #end if
-            #if str($reorder).strip()
+            #if str($reorder).strip() and str($reorder) != 'None'
                 $reorder
                 #if $reorder == '--reorder'
                     --base-dir '$base_dir'
@@ -81,7 +81,30 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="model" value="README.md" ftype="binary"/>
+            <param name="model" value="invalid_model.bin" ftype="binary"/>
+            <param name="test_set" value="ground_truth.txt" ftype="txt"/>
+            <param name="test_data" value="manifest.txt" ftype="txt"/>
+            <param name="format_type" value="path"/>
+            <param name="batch_size" value="2"/>
+            <param name="pad" value="4"/>
+            <param name="normalization" value="NFD"/>
+            <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
+            <param name="reorder" value="--reorder"/>
+            <param name="base_dir" value="L"/>
+            <param name="no_legacy_polygons" value="true"/>
+            <assert_command>
+                <has_text text="test"/>
+                <has_text text="--model"/>
+                <has_text text="--format-type 'path'"/>
+                <has_text text="--batch-size '2'"/>
+                <has_text text="--pad '4'"/>
+                <has_text text="--normalization 'NFD'"/>
+                <has_text text="--no-normalize-whitespace"/>
+                <has_text text="--reorder"/>
+                <has_text text="--base-dir 'L'"/>
+                <has_text text="--no-legacy-polygons"/>
+                <has_text text="--test-data"/>
+            </assert_command>
         </test>
     </tests>
     <help format="markdown">
