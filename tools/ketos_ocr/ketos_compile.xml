@@ -1,84 +1,286 @@
-<tool id="ketos_compile" name="Ketos Compile" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+<tool id="ketos_compile"
+      name="Ketos Compile"
+      version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@"
+      profile="@PROFILE@">
     <description>precompile OCR training data into an Arrow dataset</description>
+
     <macros>
         <import>macros.xml</import>
     </macros>
+
     <expand macro="requirements"/>
     <expand macro="creators"/>
+
     <command detect_errors="exit_code"><![CDATA[
+        ## Stage path-based image/transcription pairs using names
+        ## understood by Ketos: NAME.EXT and NAME.gt.txt.
+        #if $training_data.format_type == 'path'
+            #if $training_data.path_source.source == 'repeat'
+                #for $i, $pair in enumerate($training_data.path_source.ground_truth_pairs)
+                    ln -s '$pair.image'
+                        'ground_truth_${i}.${pair.image.ext}' &&
+                    ln -s '$pair.transcription'
+                        'ground_truth_${i}.gt.txt' &&
+                #end for
+            #else
+                #for $i, $pair in enumerate($training_data.path_source.ground_truth_collection)
+                    ln -s '$pair.forward'
+                        'ground_truth_${i}.${pair.forward.ext}' &&
+                    ln -s '$pair.reverse'
+                        'ground_truth_${i}.gt.txt' &&
+                #end for
+            #end if
+        #end if
+
         ketos
             @GLOBAL_ARGS@
             compile
             --output dataset.arrow
-            --format-type '$format_type'
-            #for $item in $files
-                #if str($item).strip() and str($item) != 'None'
-                    --files '$item'
-                #end if
-            #end for
+            --format-type '$training_data.format_type'
+            $empty_lines
+            --recordbatch-size '$recordbatch_size'
             #if str($force_type).strip() and str($force_type) != 'None'
                 --force-type '$force_type'
             #end if
-            $empty_lines
-            --recordbatch-size '$recordbatch_size'
             #if $legacy_polygons
                 --legacy-polygons
             #end if
-            #for $item in $ground_truth
-                #if str($item).strip() and str($item) != 'None'
-                    '$item'
+
+            ## Supply the staged line images as positional arguments.
+            #if $training_data.format_type == 'path'
+                #if $training_data.path_source.source == 'repeat'
+                    #for $i, $pair in enumerate($training_data.path_source.ground_truth_pairs)
+                        'ground_truth_${i}.${pair.image.ext}'
+                    #end for
+                #else
+                    #for $i, $pair in enumerate($training_data.path_source.ground_truth_collection)
+                        'ground_truth_${i}.${pair.forward.ext}'
+                    #end for
                 #end if
-            #end for
+            #else
+                #for $item in $training_data.ground_truth_files
+                    '$item'
+                #end for
+            #end if
     ]]></command>
+
     <expand macro="env_vars"/>
+
     <inputs>
         <expand macro="global_inputs"/>
-        <param name="ground_truth" type="data" multiple="true" optional="true" format="txt,xml,alto,json,jpg,png,tiff" label="Ground-truth files"/>
-        <param name="files" type="data" multiple="true" optional="true" format="txt" label="Manifest files"/>
-        <param argument="--format-type" type="select" label="Training data format">
-            <option value="xml" selected="true">XML</option>
-            <option value="alto">ALTO</option>
-            <option value="page">PageXML</option>
-            <option value="path">Path/image pairs</option>
-        </param>
-        <param argument="--force-type" type="select" optional="true" label="Force dataset type">
+
+        <conditional name="training_data">
+            <param name="format_type"
+                   type="select"
+                   label="Training data format">
+                <option value="xml" selected="true">XML</option>
+                <option value="alto">ALTO</option>
+                <option value="page">PAGE XML</option>
+                <option value="path">Line image/transcription pairs</option>
+            </param>
+
+            <when value="path">
+                <conditional name="path_source">
+                    <param name="source"
+                           type="select"
+                           label="Input method">
+                        <option value="repeat" selected="true">
+                            Select individual image/transcription pairs
+                        </option>
+                        <option value="collection">
+                            List of paired datasets
+                        </option>
+                    </param>
+
+                    <when value="repeat">
+                        <repeat name="ground_truth_pairs"
+                                title="Ground-truth line"
+                                min="1">
+                            <param name="image"
+                                   type="data"
+                                   format="jpg,png,tiff"
+                                   label="Line image"/>
+
+                            <param name="transcription"
+                                   type="data"
+                                   format="txt"
+                                   label="Ground-truth transcription"/>
+                        </repeat>
+                    </when>
+
+                    <when value="collection">
+                        <param name="ground_truth_collection"
+                               type="data_collection"
+                               collection_type="list:paired"
+                               format="jpg,png,tiff,txt"
+                               label="Line image/transcription pairs"
+                               help="For every pair, the forward element must be the line image and the reverse element must be its text transcription."/>
+                    </when>
+                </conditional>
+            </when>
+
+            <when value="xml">
+                <param name="ground_truth_files"
+                       type="data"
+                       multiple="true"
+                       format="xml"
+                       label="XML ground-truth files"/>
+            </when>
+
+            <when value="alto">
+                <param name="ground_truth_files"
+                       type="data"
+                       multiple="true"
+                       format="alto"
+                       label="ALTO ground-truth files"/>
+            </when>
+
+            <when value="page">
+                <param name="ground_truth_files"
+                       type="data"
+                       multiple="true"
+                       format="xml"
+                       label="PAGE XML ground-truth files"/>
+            </when>
+        </conditional>
+
+        <param argument="--force-type"
+               type="select"
+               optional="true"
+               label="Force dataset type">
             <option value="" selected="true">Auto-detect</option>
             <option value="bbox">Bounding boxes</option>
             <option value="baseline">Baselines</option>
         </param>
-        <param name="empty_lines" type="select" label="Empty text lines">
-            <option value="--skip-empty-lines" selected="true">Skip empty lines</option>
-            <option value="--keep-empty-lines">Keep empty lines</option>
+
+        <param name="empty_lines"
+               type="select"
+               label="Empty text lines">
+            <option value="--skip-empty-lines" selected="true">
+                Skip empty lines
+            </option>
+            <option value="--keep-empty-lines">
+                Keep empty lines
+            </option>
         </param>
-        <param argument="--recordbatch-size" type="integer" min="1" value="100" label="Minimum records per Arrow RecordBatch"/>
-        <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
+
+        <param argument="--recordbatch-size"
+               type="integer"
+               min="1"
+               value="100"
+               label="Minimum records per Arrow RecordBatch"/>
+
+        <param argument="--legacy-polygons"
+               type="boolean"
+               truevalue="true"
+               falsevalue="false"
+               checked="false"
+               label="Use legacy polygon extractor"/>
     </inputs>
+
     <outputs>
-        <data name="dataset" format="binary" from_work_dir="dataset.arrow" label="${tool.name} on ${on_string}: dataset.arrow"/>
+        <data name="dataset"
+              format="binary"
+              from_work_dir="dataset.arrow"
+              label="${tool.name} on ${on_string}: dataset.arrow"/>
     </outputs>
+
     <tests>
-        <test expect_failure="true">
-            <param name="ground_truth" value="ground_truth.txt" ftype="txt"/>
-            <param name="files" value="manifest.txt" ftype="txt"/>
-            <param name="format_type" value="path"/>
+        <!-- Test manual repeat input using defaults. -->
+        <test expect_num_outputs="1">
+            <conditional name="training_data">
+                <param name="format_type" value="path"/>
+
+                <conditional name="path_source">
+                    <param name="source" value="repeat"/>
+
+                    <repeat name="ground_truth_pairs">
+                        <param name="image"
+                               value="compile_input_line.png"
+                               ftype="png"/>
+                        <param name="transcription"
+                               value="compile_input_line.gt.txt"
+                               ftype="txt"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <param name="empty_lines" value="--skip-empty-lines"/>
+            <param name="recordbatch_size" value="100"/>
+
+            <output name="dataset" ftype="binary">
+                <assert_contents>
+                    <has_size min="100"/>
+                    <has_text text="ARROW1" n="2"/>
+                </assert_contents>
+            </output>
+
+            <assert_stdout>
+                <has_text text="Output file written to dataset.arrow"/>
+            </assert_stdout>
+        </test>
+
+        <!-- Test a list:paired collection and non-default options. -->
+        <test expect_num_outputs="1">
+            <conditional name="training_data">
+                <param name="format_type" value="path"/>
+
+                <conditional name="path_source">
+                    <param name="source" value="collection"/>
+
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="line_001">
+                                <collection type="paired">
+                                    <element name="forward"
+                                             value="compile_input_line.png"
+                                             ftype="png"/>
+                                    <element name="reverse"
+                                             value="compile_input_line.gt.txt"
+                                             ftype="txt"/>
+                                </collection>
+                            </element>
+
+                            <element name="line_002">
+                                <collection type="paired">
+                                    <element name="forward"
+                                             value="compile_input_line.png"
+                                             ftype="png"/>
+                                    <element name="reverse"
+                                             value="compile_input_line.gt.txt"
+                                             ftype="txt"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+
             <param name="force_type" value="bbox"/>
             <param name="empty_lines" value="--keep-empty-lines"/>
-            <param name="recordbatch_size" value="2"/>
+            <param name="recordbatch_size" value="1"/>
             <param name="legacy_polygons" value="true"/>
-            <assert_command>
-                <has_text text="ketos"/>
-                <has_text text="compile"/>
-                <has_text text="--format-type 'path'"/>
-                <has_text text="--files"/>
-                <has_text text="--force-type 'bbox'"/>
-                <has_text text="--keep-empty-lines"/>
-                <has_text text="--recordbatch-size '2'"/>
-                <has_text text="--legacy-polygons"/>
-            </assert_command>
+
+            <output name="dataset" ftype="binary">
+                <assert_contents>
+                    <has_size min="100"/>
+                    <has_text text="ARROW1" n="2"/>
+                </assert_contents>
+            </output>
         </test>
     </tests>
-    <help format="markdown">
-Compiles line or document ground-truth data into Kraken/Ketos' binary Arrow dataset format. Use the resulting dataset with Ketos training commands by selecting `binary` as the training data format.
-    </help>
+
+    <help format="markdown"><![CDATA[
+Compiles OCR ground-truth data into Kraken/Ketos' binary Apache Arrow
+IPC dataset format.
+
+For line image/transcription input, either select individual pairs or provide
+a `list:paired` Galaxy collection. In a collection, each `forward` element must
+be the line image and each `reverse` element must be its text transcription.
+
+Use the resulting dataset with Ketos training commands by selecting the
+compiled binary training-data format.
+    ]]></help>
+
     <expand macro="citations"/>
 </tool>
