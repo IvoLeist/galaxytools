@@ -91,7 +91,7 @@
                         </param>
                     </when>
                     <when value="history">
-                        <param name="model" type="data" format="binary" label="Segmentation model from your history."/>
+                        <param name="model" type="data" format="mlmodel,safetensors" label="Segmentation model from your history."/>
                     </when>
                 </conditional>
             </when>
@@ -133,13 +133,13 @@
                         <action type="format" default="alto"/>
                     </when>
                     <when value="-x">
-                        <action type="format" default="xml"/>
+                        <action type="format" default="page.xml"/>
                     </when>
                     <when value="-h">
-                        <action type="format" default="html"/>
+                        <action type="format" default="hocr"/>
                     </when>
                     <when value="-y">
-                        <action type="format" default="xml"/>
+                        <action type="format" default="abbyy.xml"/>
                     </when>
                     <when value="-n">
                         <action type="format" default="json"/>
@@ -240,7 +240,7 @@
             <conditional name="segmenter">
                 <param name="type" value="boxes"/>
             </conditional>
-            <output name="output" ftype="html">
+            <output name="output" ftype="hocr">
                 <assert_contents>
                     <has_text text="ocr_line"/>
                 </assert_contents>

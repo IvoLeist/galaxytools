@@ -64,7 +64,7 @@
             </param>
             <when value="segmented">
                 <param name="image" type="data" format="jpg,png,tiff" label="Image"/>
-                <param name="segmentation" type="data" format="xml,alto" label="Segmentation XML" help="File containing pre-segmented text regions in ALTO or PAGE format"/>
+                <param name="segmentation" type="data" format="alto,page.xml" label="Segmentation XML" help="File containing pre-segmented text regions in ALTO or PAGE format"/>
             </when>
             <when value="line">
                 <param name="image" type="data" format="jpg,png,tiff,pdf" label="Line image"/>
@@ -90,7 +90,7 @@
                 </param>
             </when>
             <when value="history">
-                <param name="model" type="data" format="binary" label="OCR model" help="Kraken OCR model file from your history."/>
+                <param name="model" type="data" format="mlmodel,safetensors" label="OCR model" help="Kraken OCR model file from your history."/>
             </when>
         </conditional>
         <param name="output_format_flag" type="select" label="Output format">
@@ -137,13 +137,13 @@
                         <action type="format" default="alto"/>
                     </when>
                     <when value="-x">
-                        <action type="format" default="xml"/>
+                        <action type="format" default="page.xml"/>
                     </when>
                     <when value="-h">
-                        <action type="format" default="html"/>
+                        <action type="format" default="hocr"/>
                     </when>
                     <when value="-y">
-                        <action type="format" default="xml"/>
+                        <action type="format" default="abbyy.xml"/>
                     </when>
                     <when value="-n">
                         <action type="format" default="txt"/>
@@ -165,7 +165,7 @@
         </expand>
         <expand macro="test_bidi_reordering" mode="--no-reorder" bidi_value="False"/>
         <test expect_num_outputs="1">
-            <expand macro="use_presegmented_input" segmentation="input_binarized_seg_page.xml" segmentation_ftype="xml"/>
+            <expand macro="use_presegmented_input" segmentation="input_binarized_seg_page.xml" segmentation_ftype="page.xml"/>
             <expand macro="get_document_ocr_model"/>
             <param name="output_format_flag" value="-h"/>
             <output name="output" ftype="html">
@@ -204,7 +204,7 @@
             <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-y"/>
             <output_collection name="pdf_output" type="list">
-                <element name="input.pdf_000000" ftype="xml">
+                <element name="input.pdf_000000" ftype="abbyy.xml">
                     <assert_contents>
                         <xml_element path="./@NS_ABBYY@page"/>
                         <xml_element path=".//@NS_ABBYY@charParams[.='P']"/>
@@ -214,7 +214,7 @@
                         <xml_element path=".//@NS_ABBYY@charParams[.='.']"/>
                     </assert_contents>
                 </element>
-                <element name="input.pdf_000001" ftype="xml">
+                <element name="input.pdf_000001" ftype="abbyy.xml">
                     <assert_contents>
                         <xml_element path="./@NS_ABBYY@page"/>
                         <xml_element path=".//@NS_ABBYY@charParams[.='d']"/>

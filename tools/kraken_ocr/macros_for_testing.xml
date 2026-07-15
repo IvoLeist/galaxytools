@@ -39,7 +39,7 @@
     <macro name="load_model_in_history" tokens="model_name,model_url">
         <conditional name="model_source">
             <param name="source" value="history"/>
-            <param name="model" value="@MODEL_NAME@" location="@MODEL_URL@" ftype="binary"/>
+            <param name="model" value="@MODEL_NAME@" location="@MODEL_URL@" ftype="mlmodel"/>
         </conditional>
     </macro>
     <macro name="get_segmentation_model">
