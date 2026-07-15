@@ -102,7 +102,7 @@
         </param>
         <!-- in kraken unbounded - tested manually: <1 does not make sense;  no real slowdown for larger values
                 arbitrary decision to put 1000 as the maximum -->
-        <param argument="--pad" type="integer" min="0" max="1000" value="16" label="Padding to add around line images for OCR" help="Increase it to give the model more margin around tightly cropped text; decrease it to add less extra whitespace. This reduces the image area processed by OCR."/>
+        <param argument="--pad" type="integer" min="0" max="1000" value="16" label="Padding to add around line images for OCR" help="Increase this to give the model more margin around tightly cropped text; decrease it to add less extra whitespace. This reduces the image area processed by OCR."/>
         <!-- in kraken unbounded - tested manually: <0 produces meaningless text, 0 returns an empty output; 
              and values <10 flatten confidence scores toward similarly low values (about 0.005 with
              the tested Model CATmuS-Print large) -->
@@ -113,7 +113,7 @@
                 <option value="--no-reorder">No</option>
             </param>
             <when value="--reorder">
-                <param argument="--base-dir" type="select" label="Initial text direction for BiDi reordering" help="Choose the initial text direction used when Kraken applies the Unicode BiDi algorithm. Auto allows explicit text direction information in ALTO/PAGE XML input to take precedence when available. For single-line image input, or when no text direction is present in the XML input, select Left-to-right or Right-to-left as appropriate for the OCR model and text.">
+                <param argument="--base-dir" type="select" label="Initial text direction for BiDi reordering" help="Choose the initial text direction used when Kraken applies the Unicode BiDi algorithm. Auto allows explicit text direction information in ALTO/PAGE XML input to take precedence when available. For single-line image input, or when no text direction is present in the XML input, select `Left-to-right` or `Right-to-left` as appropriate for the OCR model and text.">
                     <option value="auto" selected="true">Auto</option>
                     <option value="L">Left-to-right</option>
                     <option value="R">Right-to-left</option>
@@ -121,7 +121,7 @@
             </when>
             <when value="--no-reorder"/>
         </conditional>
-        <param argument="--text-direction" type="select" label="OCR text direction" help="Select Horizontal, top-to-bottom for normal horizontal text lines such as English, German, Greek, Arabic, or Hebrew; Vertical, left-to-right for vertical text with columns ordered left-to-right; or Vertical, right-to-left for vertical text with columns ordered right-to-left, such as traditional Chinese, Japanese, or Korean layouts.">
+        <param argument="--text-direction" type="select" label="OCR text direction" help="Select `Horizontal, top-to-bottom` for horizontal text lines such as English, German, Greek, Arabic, or Hebrew; `Vertical, left-to-right` for vertical text with columns ordered left-to-right; or `Vertical, right-to-left` for vertical text with columns ordered right-to-left, such as traditional Chinese, Japanese, or Korean layouts.">
             <option value="horizontal-tb" selected="true">Horizontal, top-to-bottom</option>
             <option value="vertical-lr">Vertical, left-to-right</option>
             <option value="vertical-rl">Vertical, right-to-left</option>
