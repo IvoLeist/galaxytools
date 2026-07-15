@@ -5,7 +5,11 @@
         <import>macros_for_testing.xml</import>
     </macros>
     <expand macro="requirements"/>
-    <expand macro="creators"/>
+    <creator>
+        <person givenName="Ivo Christopher" familyName="Leist" email="leist@informatik.uni-freiburg.de" identifier="https://orcid.org/0000-0002-9772-443X"/>
+        <organization name="AI4SOCIAL+" url="https://cordis.europa.eu/project/id/101292886"/>
+        <organization name="Ajax Multi-Commentary project" url="https://mromanello.github.io/ajax-multi-commentary"/>
+    </creator>
     <command detect_errors="exit_code"><![CDATA[
         #if $output_format_flag == '-h'
             #set $out_ext = 'html'
