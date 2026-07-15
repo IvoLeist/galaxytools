@@ -40,7 +40,7 @@
         <!-- in kraken unbounded - tested manually: <1 errors out; >100 processing very slow. -->
         <param argument="--range" type="integer" value="20" min="1" max="100" label="Range for filters" help="Increase it for a smoother, broader background estimate. Decrease it for stronger local adaptation; results may then be affected more by small variations, noise, or paper texture."/>
         <!-- both low/high are in kraken bounded -->
-        <param argument="--low" type="integer" min="1" max="100" value="5" label="Percentile for black estimation" help="Increase it to use a brighter foreground estimate, which may reduce the influence of very dark noise or artifacts; decrease it to use a darker foreground estimate, which may better preserve dark text strokes but can be more affected by dark speckles or stains."/>
+        <param argument="--low" type="integer" min="1" max="100" value="5" label="Percentile for black estimation" help="Increase this to use a brighter foreground estimate, which may reduce the influence of very dark noise or artifacts; decrease it to use a darker foreground estimate, which may better preserve dark text strokes but can be more affected by dark speckles or stains."/>
         <param argument="--high" type="integer" min="1" max="100" value="90" label="Percentile for white estimation" help="Increase it to use a brighter background estimate, which may help with very light page backgrounds but can be affected by bright artifacts or glare; decrease it to use a darker background estimate, which may be more robust to bright artifacts but can reduce contrast for faint text."/>
     </inputs>
     <outputs>
