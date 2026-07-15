@@ -97,24 +97,24 @@
             </when>
             <when value="boxes">
                 <!-- in kraken unbounded - tested manually: <1; >100 lines is empty or the processing time is very long -->
-                <param argument="--scale" type="float" optional="true" min="1" max="100" label="Layout analysis scale" help="Increase it to help with larger text structures; decrease it to adapt better to smaller text. Very low values may miss or fragment lines."/>
+                <param argument="--scale" type="float" optional="true" min="1" max="100" label="Layout analysis scale" help="Increase this to help with larger text structures; decrease it to adapt better to smaller text. Very low values may miss or fragment lines."/>
                 <!-- in kraken unbounded - tested manually: <1 does not make sense;  no real slowdown for larger values
                 arbitrary decision to put 1000 as the maximum -->
                 <param argument="--maxcolseps" type="integer" value="2" min="0" max="1000" label="Maximum column separators" help="Maximum number of column separators to detect during segmentation. Increase it for layouts with more text columns; decrease it for simpler layouts or single-column pages."/>
-                <param name="colseps" type="select" label="Column separator color" help="Select White for separators formed by blank page background; select Black for layouts with printed vertical rules or dark divider lines.">
+                <param name="colseps" type="select" label="Column separator color" help="Select `White` for separators formed by blank page background; select `Black` for layouts with printed vertical rules or dark divider lines.">
                     <option value="--white_colseps" selected="true">White</option>
                     <option value="--black-colseps">Black</option>
                 </param>
-                <param name="hlines" type="select" label="Horizontal ruling lines" help="Select Remove horizontal lines to ignore lines such as table rules, form lines, or ruled-paper lines; select Keep horizontal lines if these lines should remain part of the segmentation input.">
+                <param name="hlines" type="select" label="Horizontal ruling lines" help="Select `Remove horizontal lines` to ignore lines such as table rules, form lines, or ruled-paper lines; select `Keep horizontal lines` if these lines should remain part of the segmentation input.">
                     <option value="--remove-hlines" selected="true">Remove horizontal lines</option>
                     <option value="--hlines">Keep horizontal lines</option>
                 </param>
                 <!-- in kraken unbounded - tested manually: <1 does not make sense;  no real slowdown for larger values
                 arbitrary decision to put 1000 as the maximum -->
-                <param argument="--pad" type="integer" value="0" min="0" max="1000" label="Segmented regions padding" help="Increase it to add more margin around each segmented region; decrease it to keep region boundaries tighter."/>
+                <param argument="--pad" type="integer" value="0" min="0" max="1000" label="Segmented regions padding" help="Increase this to add more margin around each segmented region; decrease it to keep region boundaries tighter."/>
             </when>
         </conditional>
-        <param argument="--text-direction" type="select" label="Text direction" help="Select horizontal left-to-right text for English, German, or Greek; horizontal right-to-left text for Arabic or Hebrew; vertical text with columns ordered left-to-right for some Mongolian layouts; or vertical text with columns ordered right-to-left for traditional Chinese, Japanese, or Korean layouts.">
+        <param argument="--text-direction" type="select" label="Text direction" help="Select `Horizontal, left-to-right` text for English, German, or Greek; `Horizontal, right-to-left` text for Arabic or Hebrew; vertical text with columns ordered left-to-right for some Mongolian layouts; or vertical text with columns ordered right-to-left for traditional Chinese, Japanese, or Korean layouts.">
             <option value="horizontal-lr" selected="true">Horizontal, left-to-right</option>
             <option value="horizontal-rl">Horizontal, right-to-left</option>
             <option value="vertical-lr">Vertical, left-to-right columns</option>
