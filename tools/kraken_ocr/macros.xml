@@ -86,4 +86,26 @@
     <macro name="input_param">
         <param name="image" type="data" format="jpg,png,tiff,pdf" label="Image or document" help="multipage is only supported for PDF inputs"/>
     </macro>
+    <macro name="datatable_model"
+        token_model_type=""
+        token_label=""
+        token_help="">
+        <param name="model"
+            type="select"
+            label="@LABEL@"
+            help="@HELP@">
+            <options from_data_table="ml_models">
+                <!-- returned value: .mlmodel path -->
+                <column name="value" index="8"/>
+                <!-- displayed model name -->
+                <column name="name" index="4"/>
+                <!-- filter by model type -->
+                <filter type="static_value"
+                        column="6"
+                        value="@MODEL_TYPE@"/>
+                <!-- sorting by explicit sort key -->
+                <filter type="sort_by" column="5"/>
+            </options>
+        </param>
+    </macro>
 </macros>
