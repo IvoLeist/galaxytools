@@ -76,16 +76,19 @@
                 <option value="history">Model from your Galaxy history</option>
             </param>
             <when value="datatable">
-                <param name="model" type="select" label="OCR model" help="Optical character recognition model used by Kraken.">
+                <param name="model"
+                    type="select"
+                    label="OCR model"
+                    help="Optical character recognition model used by Kraken.">
                     <options from_data_table="ml_models">
-                        <!-- returned value: .mlmodel path on your system/on Galaxy servers -->
-                        <column name="value" index="5"/>
-                        <!-- displayed label including variant: e.g. "CATMuS-Print [Tiny]" -->
+                        <!-- returned value: .mlmodel path -->
+                        <column name="value" index="8"/>
+                        <!-- displayed label including variant -->
                         <column name="name" index="4"/>
                         <!-- filter by model type -->
                         <filter type="static_value" column="6" value="ocr"/>
-                        <!-- sorting by explicit sort key: e.g. "CATMuS-Print__010" -->
-                        <filter type="sort_by" column="8"/>
+                        <!-- sorting by explicit sort key -->
+                        <filter type="sort_by" column="5"/>
                     </options>
                 </param>
             </when>
