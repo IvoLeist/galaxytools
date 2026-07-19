@@ -74,13 +74,9 @@
             <param name="source" type="select" label="Model source" help="Select a model from the list or upload your own model file.">
                 <option value="datatable" selected="true">Models served by Galaxy</option>
                 <option value="history">Model from your Galaxy history</option>
-            </param>            
+            </param>
             <when value="datatable">
-                <expand 
-                    macro="datatable_model"
-                    model_type="ocr"
-                    label="OCR model"
-                    help="Optical character recognition model used by Kraken."/>
+                <expand macro="datatable_model" model_type="ocr" label="OCR model" help="Optical character recognition model used by Kraken."/>
             </when>
             <when value="history">
                 <param name="model" type="data" format="mlmodel,safetensors" label="OCR model" help="Kraken OCR model file from your history."/>

@@ -76,12 +76,8 @@
                         <option value="history">Model from your Galaxy history</option>
                     </param>
                     <when value="default"/>
-                    
                     <when value="datatable">
-                        <expand macro="datatable_model"
-                            model_type="segmentation"
-                            label="Segmentation model"
-                            help="Select a segmentation model to use. The default is kraken's internal stock model"/>
+                        <expand macro="datatable_model" model_type="segmentation" label="Segmentation model" help="Select a segmentation model to use. The default is kraken's internal stock model"/>
                     </when>
                     <when value="history">
                         <param name="model" type="data" format="mlmodel,safetensors" label="Segmentation model from your history."/>
