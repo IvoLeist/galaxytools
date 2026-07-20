@@ -11,17 +11,8 @@
         <organization name="Ajax Multi-Commentary project" url="https://mromanello.github.io/ajax-multi-commentary"/>
     </creator>
     <command detect_errors="exit_code"><![CDATA[
-        #if $output_format_flag == '-a'
-            #set $out_ext = 'alto'
-        #else if $output_format_flag == '-x'
-            #set $out_ext = 'page.xml'
-        #else if $output_format_flag == '-h'
-            #set $out_ext = 'html'
-        #else if $output_format_flag == '-y'
-            #set $out_ext = 'abbyy.xml'
-        #else
-            #set $out_ext = 'txt'
-        #end if
+        #set $native_out_ext = 'txt'
+        @SET_OUTPUT_EXTENSION@
         @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
 
         ln -s '$input_type.image' 'input.${input_type.image.ext}' &&
