@@ -16,7 +16,7 @@
         #else if $output_format_flag == '-x'
             #set $out_ext = 'page.xml'
         #else if $output_format_flag == '-h'
-            #set $out_ext = 'hocr'
+            #set $out_ext = 'html'
         #else if $output_format_flag == '-y'
             #set $out_ext = 'abbyy.xml'
         #else
@@ -157,7 +157,7 @@
                 format="page.xml"/>
 
             <discover_datasets
-                pattern="(?P&lt;designation&gt;.+)\.hocr$"
+                pattern="(?P&lt;designation&gt;.+)\.html$"
                 format="hocr"/>
 
             <discover_datasets
