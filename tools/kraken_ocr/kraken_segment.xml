@@ -7,12 +7,16 @@
     <expand macro="requirements"/>
     <expand macro="creators"/>
     <command detect_errors="exit_code"><![CDATA[
-        #if $output_format_flag == '-h'
-            #set $out_ext = 'html'
-        #elif $output_format_flag == '-n'
-            #set $out_ext = 'json'
+         #if $output_format_flag == '-a'
+            #set $out_ext = 'alto'
+        #else if $output_format_flag == '-x'
+            #set $out_ext = 'page.xml'
+        #else if $output_format_flag == '-h'
+            #set $out_ext = 'hocr'
+        #else if $output_format_flag == '-y'
+            #set $out_ext = 'abbyy.xml'
         #else
-            #set $out_ext = 'xml'
+            #set $out_ext = 'json'
         #end if
         @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
         @CREATE_SYMLINKS@
@@ -138,7 +142,27 @@
         </data>
         <collection name="pdf_output" type="list" label="${tool.name} pages on ${on_string}">
             <filter>image.ext == "pdf"</filter>
-            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.(?P&lt;ext&gt;json|xml|html)"/>
+            <!-- <discover_datasets pattern="(?P&lt;designation&gt;.+)\.(?P&lt;ext&gt;json|xml|html)"/> -->
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.alto$"
+                format="alto"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.page\.xml$"
+                format="page.xml"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.hocr$"
+                format="hocr"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.abbyy\.xml$"
+                format="abbyy.xml"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.json$"
+                format="json"/>
         </collection>
     </outputs>
     <tests>

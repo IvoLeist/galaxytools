@@ -11,12 +11,16 @@
         <organization name="Ajax Multi-Commentary project" url="https://mromanello.github.io/ajax-multi-commentary"/>
     </creator>
     <command detect_errors="exit_code"><![CDATA[
-        #if $output_format_flag == '-h'
-            #set $out_ext = 'html'
-        #elif $output_format_flag == '-n'
-            #set $out_ext = 'txt'
+        #if $output_format_flag == '-a'
+            #set $out_ext = 'alto'
+        #else if $output_format_flag == '-x'
+            #set $out_ext = 'page.xml'
+        #else if $output_format_flag == '-h'
+            #set $out_ext = 'hocr'
+        #else if $output_format_flag == '-y'
+            #set $out_ext = 'abbyy.xml'
         #else
-            #set $out_ext = 'xml'
+            #set $out_ext = 'txt'
         #end if
         @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
 
@@ -142,7 +146,27 @@
         </data>
         <collection name="pdf_output" type="list" label="${tool.name} pages on ${on_string}">
             <filter>input_type['image'].ext == "pdf"</filter>
-            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.(?P&lt;ext&gt;txt|xml|html)"/>
+            <!-- <discover_datasets pattern="(?P&lt;designation&gt;.+)\.(?P&lt;ext&gt;txt|xml|html)"/> -->
+
+             <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.alto$"
+                format="alto"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.page\.xml$"
+                format="page.xml"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.hocr$"
+                format="hocr"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.abbyy\.xml$"
+                format="abbyy.xml"/>
+
+            <discover_datasets
+                pattern="(?P&lt;designation&gt;.+)\.txt$"
+                format="txt"/>
         </collection>
     </outputs>
     <tests>
@@ -181,7 +205,7 @@
             <expand macro="use_line_input" image="input_line.tiff" image_ftype="tiff"/>
             <expand macro="get_line_ocr_model"/>
             <param name="output_format_flag" value="-x"/>
-            <output name="output" ftype="xml">
+            <output name="output" ftype="page.xml">
                 <assert_contents>
                     <xml_element path="./@NS_PAGE@Page"/>
                     <xml_element path=".//@NS_PAGE@TextEquiv/@NS_PAGE@Unicode[.='Pind.']"/>
