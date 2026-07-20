@@ -88,7 +88,7 @@
     </macro>
     <macro name="datatable_model" token_model_type="" token_label="" token_help="">
         <param name="model" type="select" label="@LABEL@" help="@HELP@">
-            <options from_data_table="ml_models">
+            <options from_data_table="pretrained_mlmodels_various_sources">
                 <!-- returned value: .mlmodel path -->
                 <column name="value" index="8"/>
                 <!-- displayed model name -->
