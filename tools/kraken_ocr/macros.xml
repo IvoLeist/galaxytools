@@ -1,19 +1,15 @@
 <macros>
     <token name="@TOOL_VERSION@">7.0.2</token>
-    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@VERSION_SUFFIX@">1</token>
     <token name="@PROFILE@">25.1</token>
     <token name="@SET_OUTPUT_EXTENSION@"><![CDATA[
-        #if $output_format_flag == '-a'
-            #set $out_ext = 'alto'
-        #else if $output_format_flag == '-x'
-            #set $out_ext = 'page.xml'
-        #else if $output_format_flag == '-h'
-            #set $out_ext = 'html'
-        #else if $output_format_flag == '-y'
-            #set $out_ext = 'abbyy.xml'
-        #else
-            #set $out_ext = $native_out_ext
-        #end if
+        #set $output_extensions = {
+            '-a': 'alto',
+            '-x': 'page.xml',
+            '-h': 'html',
+            '-y': 'abbyy.xml',
+        }
+        #set $out_ext = $output_extensions.get(str($output_format_flag), $native_out_ext)
     ]]></token>
     <token name="@REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@"><![CDATA[
         #if $image.ext in ("tiff", "tif")
