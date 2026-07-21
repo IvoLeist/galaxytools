@@ -128,7 +128,7 @@
             <expand macro="use_presegmented_input" segmentation="input_binarized_seg_page.xml" segmentation_ftype="page.xml"/>
             <expand macro="get_document_ocr_model"/>
             <param name="output_format_flag" value="-h"/>
-            <output name="output" ftype="html">
+            <output name="output" ftype="hocr">
                 <assert_contents>
                     <has_text text="ocr_line"/>
                 </assert_contents>
