@@ -2,6 +2,21 @@
     <token name="@TOOL_VERSION@">7.0.2</token>
     <token name="@VERSION_SUFFIX@">0</token>
     <token name="@PROFILE@">25.1</token>
+    <token name="@REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@"><![CDATA[
+    #if $image.ext in ("tiff", "tif")
+        #set $offsets_file = $image.metadata.offsets
+        {
+            pages=\$(tr -d '[] ' < '$offsets_file' |
+                tr ',' '\n' |
+                grep -c '[0-9]');
+
+            if [ "\$pages" -gt 1 ]; then
+                echo "Multi-page TIF(F) training images are not supported by Kraken 7. Detected \$pages pages. Please use a single-page image or split the TIFF first." >&2;
+                exit 1;
+            fi;
+        } &&
+    #end if
+    ]]></token>
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="@TOOL_VERSION@">kraken-ocr</requirement>
