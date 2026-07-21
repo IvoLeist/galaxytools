@@ -24,10 +24,40 @@
                 #end for
             #else
                 #for $i, $pair in enumerate($training_data.path_source.ground_truth_collection)
-                    ln -s '$pair.forward'
-                        'ground_truth_${i}.${pair.forward.ext}' &&
-                    ln -s '$pair.reverse'
-                        'ground_truth_${i}.gt.txt' &&
+                    ln -s '$pair.forward' 'ground_truth_${i}.${pair.forward.ext}' &&
+                    ln -s '$pair.reverse' 'ground_truth_${i}.gt.txt' &&
+                #end for
+            #end if
+        #end if
+
+         #if $training_data.format_type == 'alto'
+            #if $training_data.alto_source.source == 'repeat'
+                #for $i, $pair in enumerate($training_data.alto_source.ground_truth_pairs)
+                    mkdir -p 'ground_truth_${i}' &&
+                    ln -s '$pair.image' 'ground_truth_${i}/input.png' &&
+                    ln -s '$pair.annotation' 'ground_truth_${i}/annotation.xml' &&
+                #end for
+            #else
+                #for $i, $pair in enumerate($training_data.alto_source.ground_truth_collection)
+                    mkdir -p 'ground_truth_${i}' &&
+                    ln -s '$pair.forward' 'ground_truth_${i}/input.png' &&
+                    ln -s '$pair.reverse' 'ground_truth_${i}/annotation.xml' &&
+                #end for
+            #end if
+        #end if
+
+        #if $training_data.format_type == 'page'
+            #if $training_data.page_source.source == 'repeat'
+                #for $i, $pair in enumerate($training_data.page_source.ground_truth_pairs)
+                    mkdir -p 'ground_truth_${i}' &&
+                    ln -s '$pair.image' 'ground_truth_${i}/input.png' &&
+                    ln -s '$pair.annotation' 'ground_truth_${i}/annotation.xml' &&
+                #end for
+            #else
+                #for $i, $pair in enumerate($training_data.page_source.ground_truth_collection)
+                    mkdir -p 'ground_truth_${i}' &&
+                    ln -s '$pair.forward' 'ground_truth_${i}/input.png' &&
+                    ln -s '$pair.reverse' 'ground_truth_${i}/annotation.xml' &&
                 #end for
             #end if
         #end if
@@ -57,10 +87,30 @@
                         'ground_truth_${i}.${pair.forward.ext}'
                     #end for
                 #end if
-            #else
-                #for $item in $training_data.ground_truth_files
-                    '$item'
-                #end for
+            #end if
+            
+            #if $training_data.format_type == 'alto'
+                #if $training_data.alto_source.source == 'repeat'
+                    #for $i, $pair in enumerate($training_data.alto_source.ground_truth_pairs)
+                        'ground_truth_${i}/annotation.xml'
+                    #end for
+                #else
+                    #for $i, $pair in enumerate($training_data.alto_source.ground_truth_collection)
+                        'ground_truth_${i}/annotation.xml'
+                    #end for
+                #end if
+            #end if
+
+            #if $training_data.format_type == 'page'
+                #if $training_data.page_source.source == 'repeat'
+                    #for $i, $pair in enumerate($training_data.page_source.ground_truth_pairs)
+                        'ground_truth_${i}/annotation.xml'
+                    #end for
+                #else
+                    #for $i, $pair in enumerate($training_data.page_source.ground_truth_collection)
+                        'ground_truth_${i}/annotation.xml'
+                    #end for
+                #end if
             #end if
     ]]></command>
 
@@ -73,8 +123,7 @@
             <param name="format_type"
                    type="select"
                    label="Training data format">
-                <option value="xml" selected="true">XML</option>
-                <option value="alto">ALTO</option>
+                <option value="alto" selected="true">ALTO</option>
                 <option value="page">PAGE XML</option>
                 <option value="path">Line image/transcription pairs</option>
             </param>
@@ -119,28 +168,84 @@
                 </conditional>
             </when>
 
-            <when value="xml">
-                <param name="ground_truth_files"
-                       type="data"
-                       multiple="true"
-                       format="xml"
-                       label="XML ground-truth files"/>
-            </when>
-
             <when value="alto">
-                <param name="ground_truth_files"
-                       type="data"
-                       multiple="true"
-                       format="alto"
-                       label="ALTO ground-truth files"/>
+                <conditional name="alto_source">
+                    <param name="source"
+                        type="select"
+                        label="Input method">
+                        <option value="repeat" selected="true">
+                            Select individual image/ALTO pairs
+                        </option>
+                        <option value="collection">
+                            List of paired datasets
+                        </option>
+                    </param>
+
+                    <when value="repeat">
+                        <repeat name="ground_truth_pairs"
+                                title="Ground-truth page"
+                                min="1">
+                            <param name="image"
+                                type="data"
+                                format="jpg,png,tiff"
+                                label="Page image"/>
+
+                            <param name="annotation"
+                                type="data"
+                                format="alto"
+                                label="ALTO annotation"/>
+                        </repeat>
+                    </when>
+
+                    <when value="collection">
+                        <param name="ground_truth_collection"
+                            type="data_collection"
+                            collection_type="list:paired"
+                            format="jpg,png,tiff,alto"
+                            label="Page image/ALTO pairs"
+                            help="For every pair, the forward element must be the page image and the reverse element must be its ALTO annotation."/>
+                    </when>
+                </conditional>
             </when>
 
             <when value="page">
-                <param name="ground_truth_files"
-                       type="data"
-                       multiple="true"
-                       format="xml"
-                       label="PAGE XML ground-truth files"/>
+                <conditional name="page_source">
+                    <param name="source"
+                        type="select"
+                        label="Input method">
+                        <option value="repeat" selected="true">
+                            Select individual image/PAGE pairs
+                        </option>
+                        <option value="collection">
+                            List of paired datasets
+                        </option>
+                    </param>
+
+                    <when value="repeat">
+                        <repeat name="ground_truth_pairs"
+                                title="Ground-truth page"
+                                min="1">
+                            <param name="image"
+                                type="data"
+                                format="jpg,png,tiff"
+                                label="Page image"/>
+
+                            <param name="annotation"
+                                type="data"
+                                format="page.xml"
+                                label="PAGE annotation"/>
+                        </repeat>
+                    </when>
+
+                    <when value="collection">
+                        <param name="ground_truth_collection"
+                            type="data_collection"
+                            collection_type="list:paired"
+                            format="jpg,png,tiff,page.xml"
+                            label="Page image/PAGE pairs"
+                            help="For every pair, the forward element must be the page image and the reverse element must be its PAGE annotation."/>
+                    </when>
+                </conditional>
             </when>
         </conditional>
 
@@ -220,6 +325,42 @@
             </assert_stdout>
         </test>
 
+          <!-- Test ALTO input from a list:paired collection. -->
+        <test expect_num_outputs="1">
+            <conditional name="training_data">
+                <param name="format_type" value="alto"/>
+
+                <conditional name="alto_source">
+                    <param name="source" value="collection"/>
+
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="page_001">
+                                <collection type="paired">
+                                    <element name="forward"
+                                             value="input_binarized.png"
+                                             ftype="png"/>
+                                    <element name="reverse"
+                                             value="input_binarized_ocr_output.alto"
+                                             ftype="alto"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+
+            <param name="empty_lines" value="--skip-empty-lines"/>
+            <param name="recordbatch_size" value="100"/>
+
+            <output name="dataset" ftype="binary">
+                <assert_contents>
+                    <has_size min="100"/>
+                    <has_text text="ARROW1" n="2"/>
+                </assert_contents>
+            </output>
+        </test>
+
         <!-- Test a list:paired collection and non-default options. -->
         <test expect_num_outputs="1">
             <conditional name="training_data">
@@ -260,6 +401,103 @@
             <param name="empty_lines" value="--keep-empty-lines"/>
             <param name="recordbatch_size" value="1"/>
             <param name="legacy_polygons" value="true"/>
+
+            <output name="dataset" ftype="binary">
+                <assert_contents>
+                    <has_size min="100"/>
+                    <has_text text="ARROW1" n="2"/>
+                </assert_contents>
+            </output>
+        </test>
+
+        <!-- Test PAGE XML input from a list:paired collection. -->
+        <test expect_num_outputs="1">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+
+                <conditional name="page_source">
+                    <param name="source" value="collection"/>
+
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="page_001">
+                                <collection type="paired">
+                                    <element name="forward"
+                                             value="input_binarized.png"
+                                             ftype="png"/>
+                                    <element name="reverse"
+                                             value="input_binarized_ocr_output.page.xml"
+                                             ftype="page.xml"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+
+            <param name="empty_lines" value="--skip-empty-lines"/>
+            <param name="recordbatch_size" value="100"/>
+
+            <output name="dataset" ftype="binary">
+                <assert_contents>
+                    <has_size min="100"/>
+                    <has_text text="ARROW1" n="2"/>
+                </assert_contents>
+            </output>
+        </test>
+
+
+        <!-- Test ALTO input with its referenced page image. -->
+        <test expect_num_outputs="1">
+            <conditional name="training_data">
+                <param name="format_type" value="alto"/>
+
+                <conditional name="alto_source">
+                    <param name="source" value="repeat"/>
+
+                    <repeat name="ground_truth_pairs">
+                        <param name="image"
+                               value="input_binarized.png"
+                               ftype="png"/>
+                        <param name="annotation"
+                               value="input_binarized_ocr_output.alto"
+                               ftype="alto"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <param name="empty_lines" value="--skip-empty-lines"/>
+            <param name="recordbatch_size" value="100"/>
+
+            <output name="dataset" ftype="binary">
+                <assert_contents>
+                    <has_size min="100"/>
+                    <has_text text="ARROW1" n="2"/>
+                </assert_contents>
+            </output>
+        </test>
+
+        <!-- Test PAGE XML input with its referenced page image. -->
+        <test expect_num_outputs="1">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+
+                <conditional name="page_source">
+                    <param name="source" value="repeat"/>
+
+                    <repeat name="ground_truth_pairs">
+                        <param name="image"
+                               value="input_binarized.png"
+                               ftype="png"/>
+                        <param name="annotation"
+                               value="input_binarized_ocr_output.page.xml"
+                               ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <param name="empty_lines" value="--skip-empty-lines"/>
+            <param name="recordbatch_size" value="100"/>
 
             <output name="dataset" ftype="binary">
                 <assert_contents>
