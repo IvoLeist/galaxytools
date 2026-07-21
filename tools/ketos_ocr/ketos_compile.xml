@@ -1,7 +1,4 @@
-<tool id="ketos_compile"
-      name="Ketos Compile"
-      version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@"
-      profile="@PROFILE@">
+<tool id="ketos_compile" name="Ketos Compile" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
     <description>precompile OCR training data into an Arrow dataset</description>
 
     <macros>
@@ -12,55 +9,36 @@
     <expand macro="creators"/>
 
     <command detect_errors="exit_code"><![CDATA[
-        ## Stage path-based image/transcription pairs using names
-        ## understood by Ketos: NAME.EXT and NAME.gt.txt.
-        #if $training_data.format_type == 'path'
-            #if $training_data.path_source.source == 'repeat'
-                #for $i, $pair in enumerate($training_data.path_source.ground_truth_pairs)
-                    ln -s '$pair.image'
-                        'ground_truth_${i}.${pair.image.ext}' &&
-                    ln -s '$pair.transcription'
-                        'ground_truth_${i}.gt.txt' &&
-                #end for
-            #else
-                #for $i, $pair in enumerate($training_data.path_source.ground_truth_collection)
-                    ln -s '$pair.forward' 'ground_truth_${i}.${pair.forward.ext}' &&
-                    ln -s '$pair.reverse' 'ground_truth_${i}.gt.txt' &&
-                #end for
-            #end if
+        #set $input_source = $training_data.input_source
+
+        #if $input_source.source == 'repeat'
+            #set $pairs = $input_source.ground_truth_pairs
+        #else
+            #set $pairs = $input_source.ground_truth_collection
         #end if
 
-         #if $training_data.format_type == 'alto'
-            #if $training_data.alto_source.source == 'repeat'
-                #for $i, $pair in enumerate($training_data.alto_source.ground_truth_pairs)
-                    mkdir -p 'ground_truth_${i}' &&
-                    ln -s '$pair.image' 'ground_truth_${i}/input.png' &&
-                    ln -s '$pair.annotation' 'ground_truth_${i}/annotation.xml' &&
-                #end for
+        #for $i, $pair in enumerate($pairs)
+            #if $input_source.source == 'repeat'
+                #set $image = $pair.image
+                #if $training_data.format_type == 'path'
+                    #set $annotation = $pair.transcription
+                #else
+                    #set $annotation = $pair.annotation
+                #end if
             #else
-                #for $i, $pair in enumerate($training_data.alto_source.ground_truth_collection)
-                    mkdir -p 'ground_truth_${i}' &&
-                    ln -s '$pair.forward' 'ground_truth_${i}/input.png' &&
-                    ln -s '$pair.reverse' 'ground_truth_${i}/annotation.xml' &&
-                #end for
+                #set $image = $pair.forward
+                #set $annotation = $pair.reverse
             #end if
-        #end if
 
-        #if $training_data.format_type == 'page'
-            #if $training_data.page_source.source == 'repeat'
-                #for $i, $pair in enumerate($training_data.page_source.ground_truth_pairs)
-                    mkdir -p 'ground_truth_${i}' &&
-                    ln -s '$pair.image' 'ground_truth_${i}/input.png' &&
-                    ln -s '$pair.annotation' 'ground_truth_${i}/annotation.xml' &&
-                #end for
+            #if $training_data.format_type == 'path'
+                ln -s '$image' 'ground_truth_${i}.${image.ext}' &&
+                ln -s '$annotation' 'ground_truth_${i}.gt.txt' &&
             #else
-                #for $i, $pair in enumerate($training_data.page_source.ground_truth_collection)
-                    mkdir -p 'ground_truth_${i}' &&
-                    ln -s '$pair.forward' 'ground_truth_${i}/input.png' &&
-                    ln -s '$pair.reverse' 'ground_truth_${i}/annotation.xml' &&
-                #end for
+                mkdir -p 'ground_truth_${i}' &&
+                ln -s '$image' 'ground_truth_${i}/input.png' &&
+                ln -s '$annotation' 'ground_truth_${i}/annotation.xml' &&
             #end if
-        #end if
+        #end for
 
         ketos
             @GLOBAL_ARGS@
@@ -76,42 +54,18 @@
                 --legacy-polygons
             #end if
 
-            ## Supply the staged line images as positional arguments.
-            #if $training_data.format_type == 'path'
-                #if $training_data.path_source.source == 'repeat'
-                    #for $i, $pair in enumerate($training_data.path_source.ground_truth_pairs)
-                        'ground_truth_${i}.${pair.image.ext}'
-                    #end for
+            #for $i, $pair in enumerate($pairs)
+                #if $training_data.format_type == 'path'
+                    #if $input_source.source == 'repeat'
+                        #set $image = $pair.image
+                    #else
+                        #set $image = $pair.forward
+                    #end if
+                    'ground_truth_${i}.${image.ext}'
                 #else
-                    #for $i, $pair in enumerate($training_data.path_source.ground_truth_collection)
-                        'ground_truth_${i}.${pair.forward.ext}'
-                    #end for
+                    'ground_truth_${i}/annotation.xml'
                 #end if
-            #end if
-            
-            #if $training_data.format_type == 'alto'
-                #if $training_data.alto_source.source == 'repeat'
-                    #for $i, $pair in enumerate($training_data.alto_source.ground_truth_pairs)
-                        'ground_truth_${i}/annotation.xml'
-                    #end for
-                #else
-                    #for $i, $pair in enumerate($training_data.alto_source.ground_truth_collection)
-                        'ground_truth_${i}/annotation.xml'
-                    #end for
-                #end if
-            #end if
-
-            #if $training_data.format_type == 'page'
-                #if $training_data.page_source.source == 'repeat'
-                    #for $i, $pair in enumerate($training_data.page_source.ground_truth_pairs)
-                        'ground_truth_${i}/annotation.xml'
-                    #end for
-                #else
-                    #for $i, $pair in enumerate($training_data.page_source.ground_truth_collection)
-                        'ground_truth_${i}/annotation.xml'
-                    #end for
-                #end if
-            #end if
+            #end for
     ]]></command>
 
     <expand macro="env_vars"/>
@@ -127,126 +81,7 @@
                 <option value="page">PAGE XML</option>
                 <option value="path">Line image/transcription pairs</option>
             </param>
-
-            <when value="path">
-                <conditional name="path_source">
-                    <param name="source"
-                           type="select"
-                           label="Input method">
-                        <option value="repeat" selected="true">
-                            Select individual image/transcription pairs
-                        </option>
-                        <option value="collection">
-                            List of paired datasets
-                        </option>
-                    </param>
-
-                    <when value="repeat">
-                        <repeat name="ground_truth_pairs"
-                                title="Ground-truth line"
-                                min="1">
-                            <param name="image"
-                                   type="data"
-                                   format="jpg,png,tiff"
-                                   label="Line image"/>
-
-                            <param name="transcription"
-                                   type="data"
-                                   format="txt"
-                                   label="Ground-truth transcription"/>
-                        </repeat>
-                    </when>
-
-                    <when value="collection">
-                        <param name="ground_truth_collection"
-                               type="data_collection"
-                               collection_type="list:paired"
-                               format="jpg,png,tiff,txt"
-                               label="Line image/transcription pairs"
-                               help="For every pair, the forward element must be the line image and the reverse element must be its text transcription."/>
-                    </when>
-                </conditional>
-            </when>
-
-            <when value="alto">
-                <conditional name="alto_source">
-                    <param name="source"
-                        type="select"
-                        label="Input method">
-                        <option value="repeat" selected="true">
-                            Select individual image/ALTO pairs
-                        </option>
-                        <option value="collection">
-                            List of paired datasets
-                        </option>
-                    </param>
-
-                    <when value="repeat">
-                        <repeat name="ground_truth_pairs"
-                                title="Ground-truth page"
-                                min="1">
-                            <param name="image"
-                                type="data"
-                                format="jpg,png,tiff"
-                                label="Page image"/>
-
-                            <param name="annotation"
-                                type="data"
-                                format="alto"
-                                label="ALTO annotation"/>
-                        </repeat>
-                    </when>
-
-                    <when value="collection">
-                        <param name="ground_truth_collection"
-                            type="data_collection"
-                            collection_type="list:paired"
-                            format="jpg,png,tiff,alto"
-                            label="Page image/ALTO pairs"
-                            help="For every pair, the forward element must be the page image and the reverse element must be its ALTO annotation."/>
-                    </when>
-                </conditional>
-            </when>
-
-            <when value="page">
-                <conditional name="page_source">
-                    <param name="source"
-                        type="select"
-                        label="Input method">
-                        <option value="repeat" selected="true">
-                            Select individual image/PAGE pairs
-                        </option>
-                        <option value="collection">
-                            List of paired datasets
-                        </option>
-                    </param>
-
-                    <when value="repeat">
-                        <repeat name="ground_truth_pairs"
-                                title="Ground-truth page"
-                                min="1">
-                            <param name="image"
-                                type="data"
-                                format="jpg,png,tiff"
-                                label="Page image"/>
-
-                            <param name="annotation"
-                                type="data"
-                                format="page.xml"
-                                label="PAGE annotation"/>
-                        </repeat>
-                    </when>
-
-                    <when value="collection">
-                        <param name="ground_truth_collection"
-                            type="data_collection"
-                            collection_type="list:paired"
-                            format="jpg,png,tiff,page.xml"
-                            label="Page image/PAGE pairs"
-                            help="For every pair, the forward element must be the page image and the reverse element must be its PAGE annotation."/>
-                    </when>
-                </conditional>
-            </when>
+            <expand macro="compile_training_data_inputs"/>
         </conditional>
 
         <param argument="--force-type"
@@ -285,7 +120,7 @@
 
     <outputs>
         <data name="dataset"
-              format="binary"
+              format="arrow"
               from_work_dir="dataset.arrow"
               label="${tool.name} on ${on_string}: dataset.arrow"/>
     </outputs>
@@ -296,7 +131,7 @@
             <conditional name="training_data">
                 <param name="format_type" value="path"/>
 
-                <conditional name="path_source">
+                <conditional name="input_source">
                     <param name="source" value="repeat"/>
 
                     <repeat name="ground_truth_pairs">
@@ -313,7 +148,7 @@
             <param name="empty_lines" value="--skip-empty-lines"/>
             <param name="recordbatch_size" value="100"/>
 
-            <output name="dataset" ftype="binary">
+            <output name="dataset" ftype="arrow">
                 <assert_contents>
                     <has_size min="100"/>
                     <has_text text="ARROW1" n="2"/>
@@ -330,7 +165,7 @@
             <conditional name="training_data">
                 <param name="format_type" value="alto"/>
 
-                <conditional name="alto_source">
+                <conditional name="input_source">
                     <param name="source" value="collection"/>
 
                     <param name="ground_truth_collection">
@@ -353,7 +188,7 @@
             <param name="empty_lines" value="--skip-empty-lines"/>
             <param name="recordbatch_size" value="100"/>
 
-            <output name="dataset" ftype="binary">
+            <output name="dataset" ftype="arrow">
                 <assert_contents>
                     <has_size min="100"/>
                     <has_text text="ARROW1" n="2"/>
@@ -366,7 +201,7 @@
             <conditional name="training_data">
                 <param name="format_type" value="path"/>
 
-                <conditional name="path_source">
+                <conditional name="input_source">
                     <param name="source" value="collection"/>
 
                     <param name="ground_truth_collection">
@@ -402,7 +237,7 @@
             <param name="recordbatch_size" value="1"/>
             <param name="legacy_polygons" value="true"/>
 
-            <output name="dataset" ftype="binary">
+            <output name="dataset" ftype="arrow">
                 <assert_contents>
                     <has_size min="100"/>
                     <has_text text="ARROW1" n="2"/>
@@ -415,7 +250,7 @@
             <conditional name="training_data">
                 <param name="format_type" value="page"/>
 
-                <conditional name="page_source">
+                <conditional name="input_source">
                     <param name="source" value="collection"/>
 
                     <param name="ground_truth_collection">
@@ -438,7 +273,7 @@
             <param name="empty_lines" value="--skip-empty-lines"/>
             <param name="recordbatch_size" value="100"/>
 
-            <output name="dataset" ftype="binary">
+            <output name="dataset" ftype="arrow">
                 <assert_contents>
                     <has_size min="100"/>
                     <has_text text="ARROW1" n="2"/>
@@ -452,7 +287,7 @@
             <conditional name="training_data">
                 <param name="format_type" value="alto"/>
 
-                <conditional name="alto_source">
+                <conditional name="input_source">
                     <param name="source" value="repeat"/>
 
                     <repeat name="ground_truth_pairs">
@@ -469,7 +304,7 @@
             <param name="empty_lines" value="--skip-empty-lines"/>
             <param name="recordbatch_size" value="100"/>
 
-            <output name="dataset" ftype="binary">
+            <output name="dataset" ftype="arrow">
                 <assert_contents>
                     <has_size min="100"/>
                     <has_text text="ARROW1" n="2"/>
@@ -482,7 +317,7 @@
             <conditional name="training_data">
                 <param name="format_type" value="page"/>
 
-                <conditional name="page_source">
+                <conditional name="input_source">
                     <param name="source" value="repeat"/>
 
                     <repeat name="ground_truth_pairs">
@@ -499,7 +334,7 @@
             <param name="empty_lines" value="--skip-empty-lines"/>
             <param name="recordbatch_size" value="100"/>
 
-            <output name="dataset" ftype="binary">
+            <output name="dataset" ftype="arrow">
                 <assert_contents>
                     <has_size min="100"/>
                     <has_text text="ARROW1" n="2"/>
@@ -509,7 +344,7 @@
     </tests>
 
     <help format="markdown"><![CDATA[
-Compiles OCR ground-truth data into Kraken/Ketos' binary Apache Arrow
+Compiles OCR ground-truth data into Kraken/Ketos' the Apache Arrow
 IPC dataset format.
 
 For line image/transcription input, either select individual pairs or provide
@@ -517,7 +352,7 @@ a `list:paired` Galaxy collection. In a collection, each `forward` element must
 be the line image and each `reverse` element must be its text transcription.
 
 Use the resulting dataset with Ketos training commands by selecting the
-compiled binary training-data format.
+compiled arrow training-data format.
     ]]></help>
 
     <expand macro="citations"/>
