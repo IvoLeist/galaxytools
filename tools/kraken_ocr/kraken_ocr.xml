@@ -112,10 +112,7 @@
         </param>
         <param name="no_legacy_polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Disable legacy polygon output" help="Choose whether to support legacy polygon formats in segmentation input. Enable it for compatibility with older segmentation files."/>
     </inputs>
-    <expand macro="segment_ocr_outputs"
-        native_format="txt"
-        input_image="input_type['image']"
-    />
+    <expand macro="segment_ocr_outputs" native_format="txt" input_image="input_type['image']"/>
     <tests>
         <expand macro="test_bidi_reordering" mode="--reorder" bidi_value="True">
             <param name="base_dir" value="auto"/>

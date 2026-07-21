@@ -108,10 +108,7 @@
             arbitrary decision to put 1000 as the maximum -->
         <param argument="--input-pad" type="integer" value="0" min="0" max="1000" label="Input image padding" help="Increase it to add more margin around the document before layout analysis; decrease it to keep the input closer to its original boundaries."/>
     </inputs>
-    <expand macro="segment_ocr_outputs"
-        native_format="json"
-        input_image="image"
-    />
+    <expand macro="segment_ocr_outputs" native_format="json" input_image="image"/>
     <tests>
         <test expect_num_outputs="1">
             <param name="image" value="input.jpg" ftype="jpg"/>
