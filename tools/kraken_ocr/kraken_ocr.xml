@@ -112,54 +112,10 @@
         </param>
         <param name="no_legacy_polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Disable legacy polygon output" help="Choose whether to support legacy polygon formats in segmentation input. Enable it for compatibility with older segmentation files."/>
     </inputs>
-    <outputs>
-        <data name="output" format="txt" label="${tool.name} on ${on_string}">
-            <filter>input_type['image'].ext != "pdf"</filter>
-            <actions>
-                <conditional name="output_format_flag">
-                    <when value="-a">
-                        <action type="format" default="alto"/>
-                    </when>
-                    <when value="-x">
-                        <action type="format" default="page.xml"/>
-                    </when>
-                    <when value="-h">
-                        <action type="format" default="hocr"/>
-                    </when>
-                    <when value="-y">
-                        <action type="format" default="abbyy.xml"/>
-                    </when>
-                    <when value="-n">
-                        <action type="format" default="txt"/>
-                    </when>
-                </conditional>
-            </actions>
-        </data>
-        <collection name="pdf_output" type="list" label="${tool.name} pages on ${on_string}">
-            <filter>input_type['image'].ext == "pdf"</filter>
-            <!-- <discover_datasets pattern="(?P&lt;designation&gt;.+)\.(?P&lt;ext&gt;txt|xml|html)"/> -->
-
-             <discover_datasets
-                pattern="(?P&lt;designation&gt;.+)\.alto$"
-                format="alto"/>
-
-            <discover_datasets
-                pattern="(?P&lt;designation&gt;.+)\.page\.xml$"
-                format="page.xml"/>
-
-            <discover_datasets
-                pattern="(?P&lt;designation&gt;.+)\.html$"
-                format="hocr"/>
-
-            <discover_datasets
-                pattern="(?P&lt;designation&gt;.+)\.abbyy\.xml$"
-                format="abbyy.xml"/>
-
-            <discover_datasets
-                pattern="(?P&lt;designation&gt;.+)\.txt$"
-                format="txt"/>
-        </collection>
-    </outputs>
+    <expand macro="segment_ocr_outputs"
+        native_format="txt"
+        input_image="input_type['image']"
+    />
     <tests>
         <expand macro="test_bidi_reordering" mode="--reorder" bidi_value="True">
             <param name="base_dir" value="auto"/>

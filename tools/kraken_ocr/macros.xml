@@ -113,4 +113,58 @@
             </options>
         </param>
     </macro>
+    <macro name="segment_ocr_outputs" tokens="native_format,input_image">
+        <outputs>
+            <data name="output"
+                format="@NATIVE_FORMAT@"
+                label="${tool.name} on ${on_string}">
+                <filter>@INPUT_IMAGE@.ext != "pdf"</filter>
+                <actions>
+                    <conditional name="output_format_flag">
+                        <when value="-a">
+                            <action type="format" default="alto"/>
+                        </when>
+                        <when value="-x">
+                            <action type="format" default="page.xml"/>
+                        </when>
+                        <when value="-h">
+                            <action type="format" default="hocr"/>
+                        </when>
+                        <when value="-y">
+                            <action type="format" default="abbyy.xml"/>
+                        </when>
+                        <when value="-n">
+                            <action type="format" default="@NATIVE_FORMAT@"/>
+                        </when>
+                    </conditional>
+                </actions>
+            </data>
+
+            <collection name="pdf_output"
+                        type="list"
+                        label="${tool.name} pages on ${on_string}">
+                <filter>@INPUT_IMAGE@.ext == "pdf"</filter>
+
+                <discover_datasets
+                    pattern="(?P&lt;designation&gt;.+)\.alto$"
+                    format="alto"/>
+
+                <discover_datasets
+                    pattern="(?P&lt;designation&gt;.+)\.page\.xml$"
+                    format="page.xml"/>
+
+                <discover_datasets
+                    pattern="(?P&lt;designation&gt;.+)\.html$"
+                    format="hocr"/>
+
+                <discover_datasets
+                    pattern="(?P&lt;designation&gt;.+)\.abbyy\.xml$"
+                    format="abbyy.xml"/>
+
+                <discover_datasets
+                    pattern="(?P&lt;designation&gt;.+)\.@NATIVE_FORMAT@$"
+                    format="@NATIVE_FORMAT@"/>
+            </collection>
+        </outputs>
+    </macro>
 </macros>
