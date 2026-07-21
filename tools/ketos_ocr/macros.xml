@@ -274,12 +274,12 @@
         </collection>
     </xml>
     <xml name="compile_training_data_input"
-         tokens="format_type,pair_label,unit,image_label,annotation_name,annotation_format,annotation_label,collection_label,collection_help">
+        tokens="format_type,pair_label,annotation_format,annotation_label">
         <when value="@FORMAT_TYPE@">
             <conditional name="input_source">
                 <param name="source"
-                       type="select"
-                       label="Input method">
+                    type="select"
+                    label="Input method">
                     <option value="repeat" selected="true">
                         Select individual @PAIR_LABEL@ pairs
                     </option>
@@ -290,27 +290,27 @@
 
                 <when value="repeat">
                     <repeat name="ground_truth_pairs"
-                            title="Ground-truth @UNIT@"
+                            title="Ground-truth pair"
                             min="1">
                         <param name="image"
-                               type="data"
-                               format="jpg,png,tiff"
-                               label="@IMAGE_LABEL@"/>
+                            type="data"
+                            format="jpg,png,tiff"
+                            label="Source image"/>
 
-                        <param name="@ANNOTATION_NAME@"
-                               type="data"
-                               format="@ANNOTATION_FORMAT@"
-                               label="@ANNOTATION_LABEL@"/>
+                        <param name="annotation"
+                            type="data"
+                            format="@ANNOTATION_FORMAT@"
+                            label="@ANNOTATION_LABEL@"/>
                     </repeat>
                 </when>
 
                 <when value="collection">
                     <param name="ground_truth_collection"
-                           type="data_collection"
-                           collection_type="list:paired"
-                           format="jpg,png,tiff,@ANNOTATION_FORMAT@"
-                           label="@COLLECTION_LABEL@"
-                           help="@COLLECTION_HELP@"/>
+                        type="data_collection"
+                        collection_type="list:paired"
+                        format="jpg,png,tiff,@ANNOTATION_FORMAT@"
+                        label="@PAIR_LABEL@ pairs"
+                        help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription."/>
                 </when>
             </conditional>
         </when>
@@ -319,35 +319,20 @@
     <xml name="compile_training_data_inputs">
         <expand macro="compile_training_data_input"
                 format_type="path"
-                pair_label="image/transcription"
-                unit="line"
-                image_label="Line image"
-                annotation_name="transcription"
+                pair_label="line image/transcription"
                 annotation_format="txt"
-                annotation_label="Ground-truth transcription"
-                collection_label="Line image/transcription pairs"
-                collection_help="For every pair, the forward element must be the line image and the reverse element must be its text transcription."/>
+                annotation_label="Ground-truth transcription"/>
 
         <expand macro="compile_training_data_input"
                 format_type="alto"
-                pair_label="image/ALTO"
-                unit="page"
-                image_label="Page image"
-                annotation_name="annotation"
+                pair_label="page image/ALTO"
                 annotation_format="alto"
-                annotation_label="ALTO annotation"
-                collection_label="Page image/ALTO pairs"
-                collection_help="For every pair, the forward element must be the page image and the reverse element must be its ALTO annotation."/>
+                annotation_label="ALTO annotation"/>
 
         <expand macro="compile_training_data_input"
                 format_type="page"
-                pair_label="image/PAGE"
-                unit="page"
-                image_label="Page image"
-                annotation_name="annotation"
+                pair_label="page image/PAGE"
                 annotation_format="page.xml"
-                annotation_label="PAGE annotation"
-                collection_label="Page image/PAGE pairs"
-                collection_help="For every pair, the forward element must be the page image and the reverse element must be its PAGE annotation."/>
+                annotation_label="PAGE annotation"/>
     </xml>
 </macros>

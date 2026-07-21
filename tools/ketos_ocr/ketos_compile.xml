@@ -20,11 +20,7 @@
         #for $i, $pair in enumerate($pairs)
             #if $input_source.source == 'repeat'
                 #set $image = $pair.image
-                #if $training_data.format_type == 'path'
-                    #set $annotation = $pair.transcription
-                #else
-                    #set $annotation = $pair.annotation
-                #end if
+                #set $annotation = $pair.annotation
             #else
                 #set $image = $pair.forward
                 #set $annotation = $pair.reverse
@@ -138,7 +134,7 @@
                         <param name="image"
                                value="compile_input_line.png"
                                ftype="png"/>
-                        <param name="transcription"
+                        <param name="annotation"
                                value="compile_input_line.gt.txt"
                                ftype="txt"/>
                     </repeat>
