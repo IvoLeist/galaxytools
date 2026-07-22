@@ -36,9 +36,7 @@
             #end if
         #end for
 
-        ketos
-            @GLOBAL_ARGS@
-            compile
+        ketos compile
             --output dataset.arrow
             --format-type '$training_data.format_type'
             $empty_lines
@@ -65,7 +63,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
         <conditional name="training_data">
             <param name="format_type" type="select" label="Training data format">
                 <option value="alto" selected="true">ALTO</option>

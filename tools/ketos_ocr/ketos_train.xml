@@ -6,8 +6,26 @@
     <expand macro="requirements"/>
     <expand macro="creators"/>
     <command detect_errors="exit_code"><![CDATA[
+        KETOS_DEVICE="\${KETOS_DEVICE:-cpu}" &&
+        KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
+        KETOS_THREADS="\${KETOS_THREADS:-1}" &&
         mkdir -p model logs &&
         ketos
+            #if str($training_opts.config).strip() and str($training_opts.config) != 'None'
+                --config '$training_opts.config'
+            #end if
+            --device "\$KETOS_DEVICE"
+            #if str($training_opts.precision).strip() and str($training_opts.precision) != 'None'
+            --precision '$training_opts.precision'
+            #end if
+
+            #if str('$training_opts.deterministic') == 'deterministic'
+                #if str($training_opts.seed).strip() and str($training_opts.seed) != 'None'
+                    --seed '$42'
+                #else
+                    --seed '$training_opts.seed'
+            #end if
+            '$training_opts.seed'
             @GLOBAL_ARGS@
             train
             @TRAINING_ARGS@

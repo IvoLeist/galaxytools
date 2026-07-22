@@ -177,8 +177,8 @@
         best_model=\$(find model -maxdepth 1 -type f -name 'best_*.safetensors' | head -n 1) &&
         if [ -n "\$best_model" ]; then cp "\$best_model" best_model.weights; fi
     ]]></token>
-    <xml name="global_inputs">
-        <section name="global" title="Global Ketos options" expanded="false">
+    <xml name="ketos_training_options">
+        <section name="training_opts" title="Ketos options" expanded="false">
             <param name="config" type="data" format="yaml" optional="true" label="Experiment YAML configuration" help="Optional ketos --config file. Command-line options selected below are still passed explicitly."/>
             <param argument="--device" type="text" optional="true" label="Device" help="Examples: cpu, cuda:0, mps, auto"/>
             <param argument="--precision" type="select" optional="true" label="Numerical precision">
