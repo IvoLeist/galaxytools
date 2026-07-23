@@ -132,18 +132,26 @@
             </element>
         </expand>
         <!-- Reject a multi-page TIFF training image. -->
-        <expand macro="compile_repeat_failure_test" format_type="alto" image="input_2pages.tiff" annotation="input_binarized_ocr_output.alto" annotation_ftype="alto" error="Multi-page TIF(F) training images are not supported by Kraken 7. Detected 2 pages."/>
+        <expand macro="compile_repeat_failure_test" format_type="alto" image="input_2pages.tiff" annotation="input_binarized_ocr_output.alto" annotation_ftype="alto" error="Multi-page TIF(F) training images are not supported. Detected 2 pages."/>
     </tests>
-    <help format="markdown"><![CDATA[
-Compiles OCR ground-truth data into the Apache Arrow IPC dataset format
-to be used with Ketos training commands. The input data can be in ALTO, PAGE XML
+    <help format="markdown">
+
+**What it does**
+
+ketos belongs to kraken, an open-source, turn-key automatic text recognition (ATR) 
+system optimized for historical and non-Latin script writing.
+This tool only exposes Kraken's `ketos compile` command, 
+which compiles OCR ground-truth data into the Apache Arrow IPC dataset format 
+to be used with Ketos training commands. The input data can be in ALTO or PAGE XML.
 
 For line image/transcription input, either select individual pairs or provide
 a `list:paired` Galaxy collection. In a collection, each `forward` element must
-be the line image and each `reverse` element must be its text transcription.
+be the line image and each `reverse` element must be its text transcription/annotation.
 
-Use the resulting dataset with Ketos training commands by selecting the
-compiled arrow training-data format.
-    ]]></help>
+**License**
+
+Kraken is licensed under the Apache-2.0 license.
+
+</help>
     <expand macro="citations"/>
 </tool>
