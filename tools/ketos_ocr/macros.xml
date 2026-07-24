@@ -1,0 +1,104 @@
+<macros>
+    <token name="@TOOL_VERSION@">7.0.2</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@PROFILE@">25.1</token>
+    <token name="@REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@"><![CDATA[
+    #if $image.ext in ("tiff", "tif")
+        #set $offsets_file = $image.metadata.offsets
+        {
+            pages=\$(tr -d '[] ' < '$offsets_file' |
+                tr ',' '\n' |
+                grep -c '[0-9]');
+
+            if [ "\$pages" -gt 1 ]; then
+                echo "Multi-page TIF(F) training images are not supported. Detected \$pages pages. Please use a single-page image or split the TIFF first." >&2;
+                exit 1;
+            fi;
+        } &&
+    #end if
+    ]]></token>
+    <token name="ALTO_PAGE_ANNOTATION_HELP">
+        For ALTO and PAGE XML input, 
+        the source image filename referenced by the XML 
+        must exactly match the selected image dataset's name in Galaxy. 
+        The name is shown under “Dataset Information” and 
+        may be changed using the dataset's pencil icon.
+    </token>
+    <xml name="requirements">
+        <requirements>
+            <requirement type="package" version="@TOOL_VERSION@">kraken-ocr</requirement>
+        </requirements>
+    </xml>
+    <xml name="creators">
+        <creator>
+            <person givenName="Ivo Christopher" familyName="Leist" email="leist@informatik.uni-freiburg.de" identifier="https://orcid.org/0000-0002-9772-443X"/>
+            <organization name="AI4SOCIAL+" url="https://cordis.europa.eu/project/id/101292886"/>
+        </creator>
+    </xml>
+    <xml name="env_vars">
+        <environment_variables>
+            <environment_variable name="TERM">dumb</environment_variable>
+            <environment_variable name="FORCE_COLOR">0</environment_variable>
+            <environment_variable name="TORCHINDUCTOR_CACHE_DIR">\$_GALAXY_JOB_TMP_DIR</environment_variable>
+        </environment_variables>
+    </xml>
+    <xml name="citations">
+        <citations>
+            <citation type="doi">10.16995/dscn.8094</citation>
+        </citations>
+    </xml>
+    <xml name="ketos_training_options">
+        <section name="training_opts" title="Ketos options" expanded="false">
+            <param name="config" type="data" format="yaml" optional="true" label="Experiment YAML configuration" help="Optional ketos --config file. Command-line options selected below are still passed explicitly."/>
+            <param argument="--device" type="text" optional="true" label="Device" help="Examples: cpu, cuda:0, mps, auto"/>
+            <param argument="--precision" type="select" optional="true" label="Numerical precision">
+                <option value="" selected="true">Use Ketos default</option>
+                <option value="64-true">64-bit</option>
+                <option value="32-true">32-bit</option>
+                <option value="16-mixed">16-bit mixed</option>
+                <option value="bf16-mixed">bfloat16 mixed</option>
+            </param>
+            <param argument="--workers" type="integer" optional="true" min="0" label="Data loading worker processes"/>
+            <param argument="--threads" type="integer" optional="true" min="1" label="OpenMP/BLAS thread limit"/>
+            <param argument="--seed" type="integer" optional="true" label="Random seed"/>
+            <param name="deterministic" type="select" label="Deterministic training">
+                <option value="" selected="true">Use Ketos default</option>
+                <option value="--deterministic">Enable</option>
+                <option value="--no-deterministic">Disable</option>
+            </param>
+        </section>
+    </xml>
+    <xml name="compile_training_data_input" tokens="format_type,pair_label,annotation_format,annotation_label,annotation_help">
+        <when value="@FORMAT_TYPE@">
+            <conditional name="input_source">
+                <param name="source" type="select" label="Input method">
+                    <option value="repeat" selected="true">
+                        Select individual @PAIR_LABEL@ pairs
+                    </option>
+                    <option value="collection">
+                        List of paired datasets
+                    </option>
+                </param>
+                <when value="repeat">
+                    <repeat name="ground_truth_pairs" title="Ground-truth pair" min="1">
+                        <param name="image" type="data" format="jpg,png,tiff" label="Source image"/>
+                        <param name="annotation" type="data" format="@ANNOTATION_FORMAT@" label="@ANNOTATION_LABEL@" help="@ANNOTATION_HELP@"/>
+                    </repeat>
+                </when>
+                <when value="collection">
+                    <param name="ground_truth_collection" type="data_collection" collection_type="list:paired" format="jpg,png,tiff,@ANNOTATION_FORMAT@" label="@PAIR_LABEL@ pairs" help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription. The source image filename referenced in the XML must exactly match the selected image dataset's name in Galaxy, which is shown under “Dataset Information” and may be changed using the dataset's pencil icon."/>
+                </when>
+            </conditional>
+            <yield/>
+        </when>
+    </xml>
+    <xml name="compile_training_data_inputs">
+        <expand macro="compile_training_data_input" format_type="path" pair_label="line image/transcription" annotation_format="txt" annotation_label="Ground-truth transcription" annotation_help=""/>
+        <expand macro="compile_training_data_input" format_type="alto" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation" annotation_help="ALTO_PAGE_ANNOTATION_HELP">
+            <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
+        </expand>
+        <expand macro="compile_training_data_input" format_type="page" pair_label="page image/PAGE" annotation_format="page.xml" annotation_label="PAGE annotation" annotation_help="ALTO_PAGE_ANNOTATION_HELP">
+            <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
+        </expand>
+    </xml>
+</macros>
