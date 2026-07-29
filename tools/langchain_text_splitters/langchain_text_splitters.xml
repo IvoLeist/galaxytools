@@ -1,0 +1,324 @@
+<tool id="langchain_text_splitters" name="LangChain Text Splitters" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>Split text into chunks for LLM and RAG workflows</description>
+    <macros>
+        <token name="@TOOL_VERSION@">1.1.2</token>
+        <token name="@VERSION_SUFFIX@">0</token>
+        <token name="@PROFILE@">24.0</token>
+    </macros>
+    <requirements>
+        <requirement type="package" version="3.12">python</requirement>
+        <requirement type="package" version="@TOOL_VERSION@">langchain-text-splitters</requirement>
+        <requirement type="package" version="0.13.0">tiktoken</requirement>
+    </requirements>
+    <required_files>
+        <include path="split_text.py" />
+    </required_files>
+    <command detect_errors="exit_code"><![CDATA[
+python '$__tool_directory__/split_text.py'
+    --input '$input'
+    --input-name '$input.element_identifier'
+    --output-text '$chunks_text'
+    --output-json '$chunks_json'
+    --output-tsv '$chunks_tsv'
+    --chunks-dir chunks
+    --splitter-type '$splitter.splitter_type'
+    --chunk-size '$chunk_size'
+    --chunk-overlap '$chunk_overlap'
+    --length-mode '$length.length_mode'
+    #if $length.length_mode == "tiktoken"
+        --encoding-name '$length.encoding_name'
+        #if $length.model_name
+            --model-name '$length.model_name'
+        #end if
+        --allowed-special '$length.allowed_special'
+    #end if
+    #if $splitter.splitter_type == "recursive_character"
+        --keep-separator '$splitter.keep_separator'
+        #if $splitter.separators
+            --separators '$splitter.separators'
+        #end if
+    #else if $splitter.splitter_type == "character"
+        --keep-separator '$splitter.keep_separator'
+        #if $splitter.separator
+            --separator '$splitter.separator'
+        #end if
+    #end if
+    $strip_whitespace
+    ]]></command>
+    <inputs>
+        <param name="input" type="data" format="txt,markdown,html,json,csv,tabular,data" label="Input text dataset" help="Plain-text-like files are read as text. Convert PDFs, DOCX, or other rich formats to Markdown first." />
+        <conditional name="splitter">
+            <param name="splitter_type" type="select" label="Splitter">
+                <option value="recursive_character" selected="true">Recursive character splitter</option>
+                <option value="character">Character splitter</option>
+                <option value="token">Token splitter</option>
+            </param>
+            <when value="recursive_character">
+                <param name="keep_separator" type="select" label="Keep separator">
+                    <option value="true" selected="true">Keep separators</option>
+                    <option value="false">Discard separators</option>
+                    <option value="start">Attach separator to chunk start</option>
+                    <option value="end">Attach separator to chunk end</option>
+                </param>
+                <param name="separators" type="text" optional="true" area="true" label="Custom recursive separators" help="Optional one-per-line separators. Use escape forms such as \n\n, \n, &lt;space&gt;, &lt;tab&gt;, or &lt;empty&gt;. Leave blank for LangChain defaults." />
+            </when>
+            <when value="character">
+                <param name="keep_separator" type="select" label="Keep separator">
+                    <option value="true" selected="true">Keep separators</option>
+                    <option value="false">Discard separators</option>
+                    <option value="start">Attach separator to chunk start</option>
+                    <option value="end">Attach separator to chunk end</option>
+                </param>
+                <param name="separator" type="text" value="\n\n" label="Separator" help="Use escape forms such as \n\n, \n, &lt;space&gt;, &lt;tab&gt;, or &lt;empty&gt;." />
+            </when>
+            <when value="token" />
+        </conditional>
+        <param name="chunk_size" type="integer" value="1000" min="1" label="Chunk size" help="Maximum chunk length, measured by the selected length function." />
+        <param name="chunk_overlap" type="integer" value="200" min="0" label="Chunk overlap" help="Overlap between adjacent chunks. Must be smaller than chunk size." />
+        <conditional name="length">
+            <param name="length_mode" type="select" label="Length function" help="Character length is deterministic and dependency-light. tiktoken better matches OpenAI-style model token budgets. Token splitter always uses tiktoken.">
+                <option value="characters" selected="true">Characters</option>
+                <option value="tiktoken">tiktoken tokens</option>
+            </param>
+            <when value="characters" />
+            <when value="tiktoken">
+                <param name="encoding_name" type="select" label="tiktoken encoding">
+                    <option value="o200k_base" selected="true">o200k_base</option>
+                    <option value="cl100k_base">cl100k_base</option>
+                    <option value="p50k_base">p50k_base</option>
+                    <option value="r50k_base">r50k_base</option>
+                    <option value="gpt2">gpt2</option>
+                </param>
+                <param name="model_name" type="text" optional="true" label="Model name override" help="Optional tiktoken model name, such as gpt-4o. When set, it overrides the encoding selection." />
+                <param name="allowed_special" type="select" label="Special token handling">
+                    <option value="none" selected="true">Reject special token strings</option>
+                    <option value="all">Allow all special token strings</option>
+                </param>
+            </when>
+        </conditional>
+        <param name="strip_whitespace" type="boolean" checked="true" truevalue="--strip-whitespace" falsevalue="" label="Strip whitespace around chunks" />
+    </inputs>
+    <outputs>
+        <data name="chunks_text" format="txt" label="${tool.name} chunks on ${on_string}" />
+        <data name="chunks_json" format="json" label="${tool.name} chunk metadata on ${on_string}" />
+        <data name="chunks_tsv" format="tabular" label="${tool.name} chunk table on ${on_string}" />
+        <collection name="chunks_collection" type="list" label="${tool.name} chunk files on ${on_string}">
+            <discover_datasets pattern="(?P&lt;designation&gt;chunk_[0-9]+)\.txt$" directory="chunks" format="txt" />
+        </collection>
+    </outputs>
+    <tests>
+        <test>
+            <param name="input" value="sample_text.txt" ftype="txt" />
+            <conditional name="splitter">
+                <param name="splitter_type" value="recursive_character" />
+                <param name="keep_separator" value="true" />
+            </conditional>
+            <param name="chunk_size" value="80" />
+            <param name="chunk_overlap" value="10" />
+            <conditional name="length">
+                <param name="length_mode" value="characters" />
+            </conditional>
+            <param name="strip_whitespace" value="true" />
+            <output name="chunks_text">
+                <assert_contents>
+                    <has_text text="Splitter: recursive_character" />
+                    <has_text text="Length function: characters" />
+                    <has_text text="Input length: 283 characters" />
+                    <has_text text="Number of chunks: 5" />
+                    <has_text text="Galaxy can prepare text for retrieval workflows." />
+                </assert_contents>
+            </output>
+            <output name="chunks_json">
+                <assert_contents>
+                    <has_text text="&quot;length_unit&quot;: &quot;characters&quot;" />
+                    <has_text text="&quot;splitter_type&quot;: &quot;recursive_character&quot;" />
+                    <has_text text="&quot;chunk_size&quot;: 80" />
+                    <has_text text="&quot;chunk_overlap&quot;: 10" />
+                    <has_text text="&quot;number_of_chunks&quot;: 5" />
+                    <has_text text="&quot;token_count&quot;:" />
+                    <has_text text="&quot;chunks&quot;:" />
+                </assert_contents>
+            </output>
+            <output name="chunks_tsv">
+                <assert_contents>
+                    <has_text text="chunk_number&#009;chunk_content&#009;chunk_token_count" />
+                    <has_text text="Galaxy can prepare text for retrieval workflows." />
+                    <has_text text="split is enough." />
+                </assert_contents>
+            </output>
+            <output_collection name="chunks_collection" type="list" count="5">
+                <element name="chunk_0001">
+                    <assert_contents>
+                        <has_text text="Galaxy can prepare text for retrieval workflows." />
+                    </assert_contents>
+                </element>
+                <element name="chunk_0005">
+                    <assert_contents>
+                        <has_text text="split is enough." />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <test>
+            <param name="input" value="sample_text.txt" ftype="txt" />
+            <conditional name="splitter">
+                <param name="splitter_type" value="character" />
+                <param name="keep_separator" value="false" />
+                <param name="separator" value="." />
+            </conditional>
+            <param name="chunk_size" value="160" />
+            <param name="chunk_overlap" value="0" />
+            <conditional name="length">
+                <param name="length_mode" value="characters" />
+            </conditional>
+            <param name="strip_whitespace" value="true" />
+            <output name="chunks_text">
+                <assert_contents>
+                    <has_text text="Splitter: character" />
+                    <has_text text="Chunk size: 160" />
+                    <has_text text="Chunk overlap: 0" />
+                    <has_text text="Number of chunks: 2" />
+                    <has_text text="Token-aware chunking helps when downstream models have strict context windows." />
+                </assert_contents>
+            </output>
+            <output name="chunks_json">
+                <assert_contents>
+                    <has_text text="&quot;splitter_type&quot;: &quot;character&quot;" />
+                    <has_text text="&quot;chunk_size&quot;: 160" />
+                    <has_text text="&quot;chunk_overlap&quot;: 0" />
+                    <has_text text="&quot;number_of_chunks&quot;: 2" />
+                    <has_text text="&quot;keep_separator&quot;: &quot;false&quot;" />
+                </assert_contents>
+            </output>
+            <output name="chunks_tsv">
+                <assert_contents>
+                    <has_text text="chunk_number&#009;chunk_content&#009;chunk_token_count" />
+                    <has_text text="Token-aware chunking helps when downstream models have strict context windows." />
+                </assert_contents>
+            </output>
+            <output_collection name="chunks_collection" type="list" count="2">
+                <element name="chunk_0001">
+                    <assert_contents>
+                        <has_text text="Galaxy can prepare text for retrieval workflows." />
+                    </assert_contents>
+                </element>
+                <element name="chunk_0002">
+                    <assert_contents>
+                        <has_text text="Token-aware chunking helps when downstream models have strict context windows." />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <test>
+            <param name="input" value="sample_text.txt" ftype="txt" />
+            <conditional name="splitter">
+                <param name="splitter_type" value="recursive_character" />
+                <param name="keep_separator" value="false" />
+            </conditional>
+            <param name="chunk_size" value="60" />
+            <param name="chunk_overlap" value="5" />
+            <conditional name="length">
+                <param name="length_mode" value="characters" />
+            </conditional>
+            <param name="strip_whitespace" value="true" />
+            <output name="chunks_text">
+                <assert_contents>
+                    <has_text text="Splitter: recursive_character" />
+                    <has_text text="Chunk size: 60" />
+                    <has_text text="Chunk overlap: 5" />
+                    <has_text text="Number of chunks: 6" />
+                    <has_text text="when a fast deterministic split is enough." />
+                </assert_contents>
+            </output>
+            <output name="chunks_json">
+                <assert_contents>
+                    <has_text text="&quot;splitter_type&quot;: &quot;recursive_character&quot;" />
+                    <has_text text="&quot;chunk_size&quot;: 60" />
+                    <has_text text="&quot;chunk_overlap&quot;: 5" />
+                    <has_text text="&quot;number_of_chunks&quot;: 6" />
+                    <has_text text="&quot;keep_separator&quot;: &quot;false&quot;" />
+                </assert_contents>
+            </output>
+            <output name="chunks_tsv">
+                <assert_contents>
+                    <has_text text="chunk_number&#009;chunk_content&#009;chunk_token_count" />
+                    <has_text text="when a fast deterministic split is enough." />
+                </assert_contents>
+            </output>
+            <output_collection name="chunks_collection" type="list" count="6">
+                <element name="chunk_0001">
+                    <assert_contents>
+                        <has_text text="Galaxy can prepare text for retrieval workflows. LangChain" />
+                    </assert_contents>
+                </element>
+                <element name="chunk_0006">
+                    <assert_contents>
+                        <has_text text="when a fast deterministic split is enough." />
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <test expect_failure="true" expect_exit_code="1">
+            <param name="input" value="sample_text.txt" ftype="txt" />
+            <conditional name="splitter">
+                <param name="splitter_type" value="recursive_character" />
+                <param name="keep_separator" value="true" />
+            </conditional>
+            <param name="chunk_size" value="10" />
+            <param name="chunk_overlap" value="10" />
+            <conditional name="length">
+                <param name="length_mode" value="characters" />
+            </conditional>
+            <param name="strip_whitespace" value="true" />
+            <assert_stderr>
+                <has_text text="Chunk overlap must be smaller than chunk size." />
+            </assert_stderr>
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+**What it does**
+
+This tool splits a text dataset into chunks with `langchain-text-splitters`.
+It is useful before retrieval-augmented generation, embedding, summarization, and other LLM workflows where long text needs to be bounded by a chunk size.
+
+The output includes:
+
+- a readable text file with chunk headers and chunk content
+- a JSON file with input metadata, chunk sizes, start offsets, and chunk text
+- a TSV file with chunk number, chunk content, and tiktoken token count
+- a Galaxy collection of text files, with one raw chunk per file
+
+**Splitter choices**
+
+- Recursive character splitter: LangChain's general-purpose splitter. It tries larger separators first and falls back to smaller separators.
+- Character splitter: splits on a single separator.
+- Token splitter: splits directly by `tiktoken` tokens.
+
+**Length functions**
+
+- Characters: counts Python string characters.
+- tiktoken tokens: counts tokens for the selected encoding or optional model name.
+
+The default `tiktoken` encoding is `o200k_base`, matching the token-counting experiment this wrapper was modeled after.
+The TSV `chunk_token_count` column always uses tiktoken. In character length mode, it uses `o200k_base`; in tiktoken length mode, it uses the selected encoding or model name.
+On a fresh machine, `tiktoken` may need one-time network access to cache encoding data, or an administrator-provided `TIKTOKEN_CACHE_DIR`.
+
+Rich documents such as PDF or DOCX should be converted to Markdown or plain text first, for example with the Markitdown tool.
+    ]]></help>
+    <citations>
+        <citation type="bibtex">
+@software{langchain_text_splitters,
+  title = {LangChain Text Splitters},
+  url = {https://github.com/langchain-ai/langchain},
+  year = {2024}
+}
+        </citation>
+        <citation type="bibtex">
+@software{tiktoken,
+  title = {tiktoken},
+  url = {https://github.com/openai/tiktoken},
+  year = {2022}
+}
+        </citation>
+    </citations>
+</tool>

@@ -1,0 +1,16 @@
+name: langchain_text_splitters
+owner: bgruening
+description: Split text into chunks using LangChain text splitters.
+long_description: |
+  Split plain-text-like datasets into chunks for LLM and RAG workflows using
+  langchain-text-splitters. The tool supports recursive character, character,
+  and tiktoken-based token splitting, and reports per-chunk lengths and start
+  offsets as both readable text and structured JSON.
+homepage_url: https://github.com/langchain-ai/langchain
+remote_repository_url: https://github.com/bgruening/galaxytools/tree/master/tools/langchain_text_splitters
+type: unrestricted
+categories:
+  - Machine Learning
+  - Text Manipulation
+maintainers:
+  - IvoLeist

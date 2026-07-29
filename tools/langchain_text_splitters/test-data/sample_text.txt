@@ -1,0 +1,3 @@
+Galaxy can prepare text for retrieval workflows. LangChain text splitters make it practical to keep chunks within a target budget.
+
+Token-aware chunking helps when downstream models have strict context windows. Character chunking is useful when a fast deterministic split is enough.
