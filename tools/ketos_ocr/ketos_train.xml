@@ -15,6 +15,8 @@
                 --config '$training_opts.config'
             #end if
             --device "\$KETOS_DEVICE"
+            --workers "\$KETOS_WORKERS"
+            --threads "\$KETOS_THREADS"
             #if str($training_opts.precision).strip() and str($training_opts.precision) != 'None'
             --precision '$training_opts.precision'
             #end if
@@ -68,7 +70,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
         <expand macro="training_data_inputs"/>
         <expand macro="training_inputs"/>
         <param argument="--format-type" type="select" label="Training data format">
@@ -118,44 +119,98 @@
         <expand macro="training_outputs"/>
     </outputs>
     <tests>
-        <test expect_failure="true">
-            <param name="ground_truth" value="ground_truth.txt" ftype="txt"/>
-            <param name="evaluation_data" value="manifest.txt" ftype="txt"/>
-            <section name="global">
-                <param name="device" value="cpu"/>
-                <param name="threads" value="1"/>
-                <param name="seed" value="7"/>
-                <param name="deterministic" value="--deterministic"/>
-            </section>
+        <!-- Train a small recognition model for one epoch. -->
+        <test expect_num_outputs="3">
+            <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="binary"/>
             <section name="train_opts">
-                <param name="batch_size" value="2"/>
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <param name="batch_size" value="1"/>
+                <param name="freq" value="1"/>
                 <param name="quit" value="fixed"/>
                 <param name="epochs" value="1"/>
-                <param name="lrate" value="0.001"/>
+                <param name="min_epochs" value="1"/>
+                <param name="partition" value="0.75"/>
                 <param name="augment" value="--no-augment"/>
             </section>
-            <param name="format_type" value="path"/>
-            <param name="pad" value="4"/>
-            <param name="normalization" value="NFC"/>
-            <param name="normalize_whitespace" value="--normalize-whitespace"/>
-            <param name="resize" value="fail"/>
-            <param name="reorder" value="--no-reorder"/>
+            <param name="format_type" value="binary"/>
+            <param name="spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
             <assert_command>
+                <has_text text="KETOS_DEVICE=&quot;${KETOS_DEVICE:-cpu}&quot;"/>
+                <has_text text="KETOS_WORKERS=&quot;${KETOS_WORKERS:-1}&quot;"/>
+                <has_text text="KETOS_THREADS=&quot;${KETOS_THREADS:-1}&quot;"/>
                 <has_text text="train"/>
-                <has_text text="--device 'cpu'"/>
-                <has_text text="--threads '1'"/>
-                <has_text text="--seed '7'"/>
-                <has_text text="--deterministic"/>
-                <has_text text="--batch-size '2'"/>
+                <has_text text="--device &quot;$KETOS_DEVICE&quot;"/>
+                <has_text text="--workers &quot;$KETOS_WORKERS&quot;"/>
+                <has_text text="--threads &quot;$KETOS_THREADS&quot;"/>
+                <has_text text="--batch-size '1'"/>
                 <has_text text="--quit 'fixed'"/>
                 <has_text text="--epochs '1'"/>
-                <has_text text="--format-type 'path'"/>
-                <has_text text="--pad '4'"/>
-                <has_text text="--normalization 'NFC'"/>
-                <has_text text="--normalize-whitespace"/>
-                <has_text text="--resize 'fail'"/>
-                <has_text text="--no-reorder"/>
+                <has_text text="--min-epochs '1'"/>
+                <has_text text="--partition '0.75'"/>
+                <has_text text="--no-augment"/>
+                <has_text text="--format-type 'binary'"/>
+                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'"/>
             </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <!-- Fine-tune existing weights and exercise recognition options. -->
+        <test expect_num_outputs="3">
+            <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="binary"/>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="load"/>
+                    <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+                </conditional>
+                <param name="batch_size" value="1"/>
+                <param name="freq" value="1"/>
+                <param name="quit" value="fixed"/>
+                <param name="epochs" value="1"/>
+                <param name="min_epochs" value="1"/>
+                <param name="partition" value="0.75"/>
+                <param name="augment" value="--no-augment"/>
+            </section>
+            <param name="format_type" value="binary"/>
+            <param name="normalization" value="NFKC"/>
+            <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
+            <param name="resize" value="union"/>
+            <param name="freeze_backbone" value="2"/>
+            <param name="reorder" value="--reorder"/>
+            <param name="base_dir" value="R"/>
+            <assert_command>
+                <has_text text="--load"/>
+                <has_text text="--format-type 'binary'"/>
+                <has_text text="--normalization 'NFKC'"/>
+                <has_text text="--no-normalize-whitespace"/>
+                <has_text text="--resize 'union'"/>
+                <has_text text="--freeze-backbone '2'"/>
+                <has_text text="--reorder"/>
+                <has_text text="--base-dir 'R'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Loading from checkpoint"/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
         </test>
     </tests>
     <help format="markdown">
