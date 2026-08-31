@@ -17,6 +17,103 @@
         } &&
     #end if
     ]]></token>
+    <token name="@TRAINING_ARGS@"><![CDATA[
+        --output model
+        --weights-format safetensors
+        #if str($train_opts.batch_size).strip() and str($train_opts.batch_size) != 'None'
+            --batch-size '$train_opts.batch_size'
+        #end if
+        #if $train_opts.initialization.source == 'load'
+            --load '$train_opts.initialization.model'
+        #elif $train_opts.initialization.source == 'resume'
+            --resume '$train_opts.initialization.checkpoint'
+        #end if
+        #if str($train_opts.freq).strip() and str($train_opts.freq) != 'None'
+            --freq '$train_opts.freq'
+        #end if
+        #if str($train_opts.quit).strip() and str($train_opts.quit) != 'None'
+            --quit '$train_opts.quit'
+        #end if
+        #if str($train_opts.epochs).strip() and str($train_opts.epochs) != 'None'
+            --epochs '$train_opts.epochs'
+        #end if
+        #if str($train_opts.min_epochs).strip() and str($train_opts.min_epochs) != 'None'
+            --min-epochs '$train_opts.min_epochs'
+        #end if
+        #if str($train_opts.lag).strip() and str($train_opts.lag) != 'None'
+            --lag '$train_opts.lag'
+        #end if
+        #if str($train_opts.min_delta).strip() and str($train_opts.min_delta) != 'None'
+            --min-delta '$train_opts.min_delta'
+        #end if
+        #if str($train_opts.optimizer).strip() and str($train_opts.optimizer) != 'None'
+            --optimizer '$train_opts.optimizer'
+        #end if
+        #if str($train_opts.lrate).strip() and str($train_opts.lrate) != 'None'
+            --lrate '$train_opts.lrate'
+        #end if
+        #if str($train_opts.momentum).strip() and str($train_opts.momentum) != 'None'
+            --momentum '$train_opts.momentum'
+        #end if
+        #if str($train_opts.weight_decay).strip() and str($train_opts.weight_decay) != 'None'
+            --weight-decay '$train_opts.weight_decay'
+        #end if
+        #if str($train_opts.gradient_clip_val).strip() and str($train_opts.gradient_clip_val) != 'None'
+            --gradient-clip-val '$train_opts.gradient_clip_val'
+        #end if
+        #if str($train_opts.accumulate_grad_batches).strip() and str($train_opts.accumulate_grad_batches) != 'None'
+            --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
+        #end if
+        #if str($train_opts.warmup).strip() and str($train_opts.warmup) != 'None'
+            --warmup '$train_opts.warmup'
+        #end if
+        #if str($train_opts.schedule).strip() and str($train_opts.schedule) != 'None'
+            --schedule '$train_opts.schedule'
+        #end if
+        #if str($train_opts.gamma).strip() and str($train_opts.gamma) != 'None'
+            --gamma '$train_opts.gamma'
+        #end if
+        #if str($train_opts.step_size).strip() and str($train_opts.step_size) != 'None'
+            --step-size '$train_opts.step_size'
+        #end if
+        #if str($train_opts.sched_patience).strip() and str($train_opts.sched_patience) != 'None'
+            --sched-patience '$train_opts.sched_patience'
+        #end if
+        #if str($train_opts.cos_max).strip() and str($train_opts.cos_max) != 'None'
+            --cos-max '$train_opts.cos_max'
+        #end if
+        #if str($train_opts.cos_min_lr).strip() and str($train_opts.cos_min_lr) != 'None'
+            --cos-min-lr '$train_opts.cos_min_lr'
+        #end if
+        #if str($train_opts.partition).strip() and str($train_opts.partition) != 'None'
+            --partition '$train_opts.partition'
+        #end if
+        #if str($train_opts.augment).strip() and str($train_opts.augment) != 'None'
+            $train_opts.augment
+        #end if
+        #if $train_opts.logger.enabled == 'yes'
+            --logger '$train_opts.logger.kind'
+            --log-dir logs
+        #end if
+    ]]></token>
+    <token name="@GROUND_TRUTH_ARGS@"><![CDATA[
+        #for $item in $ground_truth
+            #if str($item).strip() and str($item) != 'None'
+                '$item'
+            #end if
+        #end for
+    ]]></token>
+    <token name="@CHECK_TRAINING_EXIT_CODE@"><![CDATA[
+        ketos_exit_code=\$?;
+        cat training_report.txt;
+        [ "\$ketos_exit_code" -eq 0 ] || exit "\$ketos_exit_code";
+    ]]></token>
+    <token name="@CAPTURE_TRAINING_OUTPUTS@"><![CDATA[
+        best_model=\$(find model -maxdepth 1 -type f -name 'best_*.safetensors' | head -n 1);
+        if [ -n "\$best_model" ]; then
+            cp "\$best_model" best_model.weights;
+        fi
+    ]]></token>
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="@TOOL_VERSION@">kraken-ocr</requirement>
@@ -31,8 +128,11 @@
     <xml name="env_vars">
         <environment_variables>
             <environment_variable name="TERM">dumb</environment_variable>
-            <environment_variable name="FORCE_COLOR">0</environment_variable>
-            <environment_variable name="TORCHINDUCTOR_CACHE_DIR">\$_GALAXY_JOB_TMP_DIR</environment_variable>
+            <environment_variable name="NO_COLOR">1</environment_variable>
+            <environment_variable name="TTY_COMPATIBLE">0</environment_variable>
+            <environment_variable name="LANG">C.UTF-8</environment_variable>
+            <environment_variable name="LC_ALL">C.UTF-8</environment_variable>
+            <environment_variable name="PYTHONIOENCODING">utf-8</environment_variable>
         </environment_variables>
     </xml>
     <xml name="citations">
@@ -68,10 +168,46 @@
         <expand macro="compile_training_data_input" format_type="alto" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation"/>
         <expand macro="compile_training_data_input" format_type="page" pair_label="page image/PAGE" annotation_format="page.xml" annotation_label="PAGE annotation"/>
     </xml>
-    <xml name="training_data_inputs">
-        <param name="ground_truth" type="data" multiple="true" optional="true" format="txt,xml,alto,json,jpg,png,tiff,binary" label="Ground-truth files passed as positional arguments"/>
-        <param name="training_data" type="data" multiple="true" optional="true" format="txt" label="Training manifest files" help="Passed with --training-data."/>
-        <param name="evaluation_data" type="data" multiple="true" optional="true" format="txt" label="Evaluation manifest files" help="Passed with --evaluation-data."/>
+    <xml name="ketos_training_options">
+        <section name="training_opts" title="Ketos options" expanded="false">
+            <param name="config" type="data" format="yaml" optional="true" label="Experiment YAML configuration" help="Optional ketos --config file. Command-line options selected below are still passed explicitly."/>
+            <param argument="--precision" type="select" optional="true" label="Numerical precision">
+                <option value="64-true" selected="true">64-bit</option>
+                <option value="32-true">32-bit</option>
+                <option value="16-mixed">16-bit mixed</option>
+                <option value="bf16-mixed">bfloat16 mixed</option>
+            </param>
+            <conditional name="deterministic">
+                <param name="mode" type="select" label="Deterministic training">
+                    <option value="--deterministic">Enable</option>
+                    <option value="--no-deterministic">Disable</option>
+                </param>
+                <when value="--deterministic">
+                    <param name="seed" type="integer" value="42" min="0" label="Random seed for deterministic training"/>
+                </when>
+                <when value="--no-deterministic"/>
+            </conditional>
+        </section>
+    </xml>
+    <xml name="ground_truth_data">
+        <!-- TODO this could probably also be the pairs similar to ketos compile -->
+        <param
+            name="ground_truth"
+            type="data"
+            multiple="true"
+            format="txt,xml,alto,json,jpg,png,tiff,binary"
+            label="Ground-truth"
+        />
+    </xml>
+    <xml name="evaluation_data">
+        <param
+            name="evaluation_data"
+            type="data"
+            multiple="true"
+            format="xml"
+            label="Evaluation data files"
+            help="Ground-truth files used for validation."
+        />
     </xml>
     <xml name="training_inputs">
         <section name="train_opts" title="Training options" expanded="false">
@@ -89,11 +225,30 @@
                     <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume"/>
                 </when>
             </conditional>
-            <param argument="--batch-size" type="integer" optional="true" min="1" label="Batch sample size"/>
-            <param argument="--freq" type="float" optional="true" min="0" label="Validation/report frequency in epochs"/>
-            <param argument="--quit" type="select" optional="true" label="Stop condition">
-                <option value="" selected="true">Use Ketos default</option>
-                <option value="early">Early stopping</option>
+            <conditional name="arch">
+                <param name="recognition_arch" type="select" label="Recognition architecture" help="Compared with VGSL models, PP-OCRv6 models offer faster recognition and generally produce better results, particularly on large-scale datasets">
+                    <option value="infer">Infer when fine-tuning or resuming training</option>
+                    <option value="ppocrv6" selected="true">PP-OCRv6</option>
+                    <option value="vgsl">VGSL</option>
+                </param>
+                <when value="ppocrv6">
+                    <param name="ppocrv6_variant" type="select" label="PP-OCRv6 Variant" help="">
+                        <option value="tiny" selected="true">tiny</option>
+                        <option value="small">small</option>
+                        <option value="medium">medium</option>
+                    </param>
+                </when>
+                <when value="vgsl"> 
+                    <param name="vgsl_spec" type="text" value="[1,48,0,1 Cr3,3,32 Do0.1,2 Mp2,2 Cr3,3,64 Do0.1,2 Mp2,2 S1(1x12)1,3 Lbx100 Do]" label="VGSL specification" help="VGSL model specification string"/>
+                </when>
+                <when value="infer"/>
+            </conditional>
+            <param argument="--batch-size" type="integer" optional="true" value="32" min="1" label="Batch sample size" help="Number of text-line samples processed together during one training step"/>
+            <!-- In theory users could set this to 0, but afaik this would mean validation after every training batch, which could lead to performance issues and early stopping of the training process. -->
+            <param argument="--freq" type="float" optional="true" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is >1 it must be an integer."/>
+            <!-- TODO create an upstream issue raising the presumed incompatibility of early stopping with PP-OCRv6 training. -->
+            <param argument="--quit" type="select" optional="true" label="Stop condition" help="Early stopping seems to be currently incompatible with PP-OCRv6 training.">
+                <option value="early" selected="true">Early stopping</option>
                 <option value="fixed">Fixed epoch count</option>
                 <option value="aneal">Aneal</option>
             </param>
@@ -130,7 +285,11 @@
             <param argument="--sched-patience" type="integer" optional="true" min="0" label="Reduce-on-plateau patience"/>
             <param argument="--cos-max" type="integer" optional="true" min="0" label="Cosine schedule max epoch"/>
             <param argument="--cos-min-lr" type="float" optional="true" min="0" label="Cosine schedule minimum learning rate"/>
-            <param argument="--partition" type="float" optional="true" min="0" max="1" label="Training/validation partition"/>
+            
+            <!-- TODO: partition should onl be shown when no explicit evaluation data is provided -->
+            
+            
+            <param argument="--partition" type="float" optional="true" value="0.9" min="0" max="1" label="Training/validation partition" help="Proportion of the ground truth data to use for training (the rest is used for validation)"/>
             <param name="augment" type="select" label="Image augmentation">
                 <option value="" selected="true">Use Ketos default</option>
                 <option value="--augment">Enable</option>
