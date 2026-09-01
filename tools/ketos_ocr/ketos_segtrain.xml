@@ -41,8 +41,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
-        <expand macro="training_data_inputs"/>
         <expand macro="training_inputs"/>
         <param argument="--format-type" type="select" label="Training data format">
             <option value="xml" selected="true">XML</option>
@@ -75,8 +73,6 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="ground_truth" value="page.xml" ftype="xml"/>
-            <param name="evaluation_data" value="manifest.txt" ftype="txt"/>
             <section name="train_opts">
                 <param name="batch_size" value="1"/>
                 <param name="quit" value="fixed"/>

@@ -19,7 +19,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
         <param name="checkpoints" type="data" multiple="true" format="binary,safetensors" label="Checkpoints or weights to convert/combine"/>
         <param argument="--weights-format" type="select" label="Output weights format">
             <option value="safetensors" selected="true">safetensors</option>

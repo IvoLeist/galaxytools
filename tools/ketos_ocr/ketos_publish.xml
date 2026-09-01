@@ -27,7 +27,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
         <param name="model" type="data" format="binary,safetensors" label="Model to publish"/>
         <param argument="--metadata" type="data" format="yaml,txt" optional="true" label="Model card metadata file"/>
         <param argument="--access-token" type="text" label="Zenodo access token"/>

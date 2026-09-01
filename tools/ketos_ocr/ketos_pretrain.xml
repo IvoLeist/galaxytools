@@ -44,8 +44,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
-        <expand macro="training_data_inputs"/>
         <expand macro="training_inputs"/>
         <param argument="--format-type" type="select" label="Training data format">
             <option value="path" selected="true">Path/image pairs</option>
@@ -72,8 +70,6 @@
     </outputs>
     <tests>
         <test expect_failure="true">
-            <param name="ground_truth" value="ground_truth.txt" ftype="txt"/>
-            <param name="training_data" value="manifest.txt" ftype="txt"/>
             <section name="train_opts">
                 <param name="batch_size" value="2"/>
                 <param name="quit" value="fixed"/>

@@ -15,7 +15,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
         <param argument="--seg-model" type="data" format="binary" label="Segmentation model"/>
         <param argument="--ro-model" type="data" format="binary" label="Reading order model"/>
     </inputs>

@@ -39,7 +39,6 @@
     ]]></command>
     <expand macro="env_vars"/>
     <inputs>
-        <expand macro="global_inputs"/>
         <param argument="--model" type="data" format="binary,safetensors" label="Recognition model to evaluate"/>
         <param name="test_set" type="data" multiple="true" optional="true" format="txt,xml,alto,json,jpg,png,tiff,binary" label="Test set files passed as positional arguments"/>
         <param name="test_data" type="data" multiple="true" optional="true" format="txt" label="Test manifest files" help="Passed with --test-data."/>
