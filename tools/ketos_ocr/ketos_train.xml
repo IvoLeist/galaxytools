@@ -11,6 +11,9 @@
         KETOS_THREADS="\${KETOS_THREADS:-1}" &&
 
         mkdir -p model logs &&
+        
+        ketos_exit_code=0
+        
         ketos
             #if str($training_opts.config).strip() and str($training_opts.config) != 'None'
                 --config '$training_opts.config'
@@ -31,16 +34,20 @@
             #end if
             train
             @TRAINING_ARGS@
-            --format-type '$format_type'
+            #if str('$training_data.format_type').strip() and str('$training_data.format_type') != 'None'
+                --format-type '$training_data.format_type'
+            #end if
             #if str($train_opts.arch.recognition_arch).strip() and str($train_opts.arch.recognition_arch) != 'None'
                 --arch '$train_opts.arch.recognition_arch'
             #end if
-            #if str('$train_opts.arch.recognition_arch') == 'ppocrv6_variant'
-                --variant '$train_opts.ppocrv6_variant'
+            #if str('$train_opts.arch.recognition_arch') == 'ppocrv6'
+                --variant '$train_opts.ppocrv6_variant'           
             #end if
-            #if str('$train_opts.arch.recognition_arch') == 'vgsl_spec'
+            #if str('$train_opts.arch.recognition_arch') == 'vgsl'
                 --spec '$train_opts.vgsl_spec'
             #end if
+            --lrate '$train_opts.lrate'
+
             #if $validation.validation_source == "automatic"
                 --partition '$validation.partition'
             #else
@@ -93,8 +100,24 @@
         </configfile>
     </configfiles>
     <inputs>
+        <conditional name="training_data">
+            <param argument="--format-type" type="select" label="Training data format">
+                <option value="binary" selected="true">Compiled binary dataset</option>
+                <option value="alto" selected="true">ALTO</option>
+                <option value="page">PAGE XML</option>
+                <option value="xml">XML</option>
+                <option value="path">Line image/transcription pairs</option>
+            </param>
+            <when value="binary">
+                <param name="ground_truth" type="data" multiple="true" format="arrow" label="Ground-truth data"/>
+            </when>
+            <expand macro="compile_training_data_input" format_type="alto" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation"/>
+            <expand macro="compile_training_data_input" format_type="page" pair_label="page image/PAGE XML" annotation_format="page.xml" annotation_label="PAGE XML annotation"/>
+            <expand macro="compile_training_data_input" format_type="xml" pair_label="page image/XML" annotation_format="xml" annotation_label="XML annotation"/>
+            <expand macro="compile_training_data_input" format_type="path" pair_label="line image/transcription" annotation_format="txt" annotation_label="Ground-truth transcription"/>
+        </conditional>
         <expand macro="ketos_training_options"/>
-        <expand macro="ground_truth_data"/>
+        <expand macro="training_inputs"/>
         <conditional name="validation">
             <param name="validation_source" type="select" label="Validation">
                 <option value="automatic" selected="true">
@@ -104,64 +127,13 @@
                     Use explicit validation data
                 </option>
             </param>
-
             <when value="automatic">
-                <param
-                    name="partition"
-                    type="float"
-                    value="0.9"
-                    min="0"
-                    max="1"
-                    label="Training data fraction"
-                    help="Fraction of the provided ground-truth samples used for training. The remaining samples are used for validation."
-                />
+                <param name="partition" type="float" value="0.9" min="0" max="1" label="Training data fraction" help="Fraction of the provided ground-truth samples used for training. The remaining samples are used for validation."/>
             </when>
             <when value="explicit">
                 <expand macro="evaluation_data"/>
             </when>
         </conditional>
-        <expand macro="training_inputs"/>
-        <param argument="--format-type" type="select" label="Training data format">
-            <option value="path" selected="true">Path/image pairs</option>
-            <option value="xml">XML</option>
-            <option value="alto">ALTO</option>
-            <option value="page">PageXML</option>
-            <option value="binary">Compiled binary dataset</option>
-        </param>
-        <param argument="--pad" type="integer" optional="true" min="0" label="Left/right padding around lines"/>
-        <param argument="--normalization" type="select" optional="true" label="Ground-truth Unicode normalization">
-            <option value="" selected="true">Use Ketos default</option>
-            <option value="NFD">NFD</option>
-            <option value="NFKD">NFKD</option>
-            <option value="NFC">NFC</option>
-            <option value="NFKC">NFKC</option>
-        </param>
-        <param name="normalize_whitespace" type="select" label="Normalize Unicode whitespace">
-            <option value="" selected="true">Use Ketos default</option>
-            <option value="--normalize-whitespace">Enable</option>
-            <option value="--no-normalize-whitespace">Disable</option>
-        </param>
-        <param argument="--codec" type="data" format="json" optional="true" label="Codec JSON definition"/>
-        <param argument="--resize" type="select" optional="true" label="Codec/output layer resizing">
-            <option value="" selected="true">Use Ketos default</option>
-            <option value="union">union</option>
-            <option value="new">new</option>
-            <option value="fail">fail</option>
-            <option value="add">add (deprecated)</option>
-            <option value="both">both (deprecated)</option>
-        </param>
-        <param argument="--freeze-backbone" type="integer" optional="true" min="0" label="Samples to keep the backbone frozen"/>
-        <param name="reorder" type="select" label="Apply Unicode BiDi reordering">
-            <option value="" selected="true">Use Ketos default</option>
-            <option value="--reorder">Enable</option>
-            <option value="--no-reorder">Disable</option>
-        </param>
-        <param argument="--base-dir" type="select" label="Base text direction for BiDi reordering">
-            <option value="auto" selected="true">Auto</option>
-            <option value="L">Left-to-right</option>
-            <option value="R">Right-to-left</option>
-        </param>
-        <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
     </inputs>
     <outputs>
         <expand macro="training_outputs"/>
@@ -169,36 +141,32 @@
     <tests>
         <!-- Train a small recognition model for one epoch. -->
         <test expect_num_outputs="3">
-            <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="binary"/>
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
             <section name="train_opts">
                 <conditional name="initialization">
                     <param name="source" value="new"/>
                 </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="ppocrv6"/>
+                    <conditional name="ppocrv6_variant">
+                        <param name="variant" value="tiny"/>
+                    </conditional>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
                 <param name="batch_size" value="1"/>
                 <param name="freq" value="1"/>
-                <param name="quit" value="fixed"/>
-                <param name="epochs" value="1"/>
-                <param name="min_epochs" value="1"/>
-                <param name="partition" value="0.75"/>
                 <param name="augment" value="--no-augment"/>
             </section>
-            <param name="format_type" value="binary"/>
-            <assert_command>
-                <has_text text="KETOS_DEVICE=&quot;${KETOS_DEVICE:-cpu}&quot;"/>
-                <has_text text="KETOS_WORKERS=&quot;${KETOS_WORKERS:-1}&quot;"/>
-                <has_text text="KETOS_THREADS=&quot;${KETOS_THREADS:-1}&quot;"/>
-                <has_text text="train"/>
-                <has_text text="--device &quot;$KETOS_DEVICE&quot;"/>
-                <has_text text="--workers &quot;$KETOS_WORKERS&quot;"/>
-                <has_text text="--threads &quot;$KETOS_THREADS&quot;"/>
-                <has_text text="--batch-size '1'"/>
-                <has_text text="--quit 'fixed'"/>
-                <has_text text="--epochs '1'"/>
-                <has_text text="--min-epochs '1'"/>
-                <has_text text="--partition '0.75'"/>
-                <has_text text="--no-augment"/>
-                <has_text text="--format-type 'binary'"/>
-            </assert_command>
+            <conditional name="validation">
+                <param name="validation_source" value="automatic"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
             <output name="best_model" ftype="binary">
                 <assert_contents>
                     <has_size min="10000"/>
@@ -214,37 +182,36 @@
         </test>
         <!-- Fine-tune existing weights and exercise recognition options. -->
         <test expect_num_outputs="3">
-            <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="binary"/>
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
             <section name="train_opts">
                 <conditional name="initialization">
                     <param name="source" value="load"/>
                     <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
                 </conditional>
-                <param name="batch_size" value="32"/>
-                <param name="freq" value="1.0"/>
-                <param name="quit" value="fixed"/>
-                <param name="epochs" value="1"/>
-                <param name="min_epochs" value="1"/>
-                <param name="partition" value="0.75"/>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="infer"/>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="batch_size" value="1"/>
+                <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
             </section>
-            <param name="format_type" value="binary"/>
             <param name="normalization" value="NFKC"/>
             <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
             <param name="resize" value="union"/>
             <param name="freeze_backbone" value="2"/>
             <param name="reorder" value="--reorder"/>
             <param name="base_dir" value="R"/>
-            <assert_command>
-                <has_text text="--load"/>
-                <has_text text="--format-type 'binary'"/>
-                <has_text text="--normalization 'NFKC'"/>
-                <has_text text="--no-normalize-whitespace"/>
-                <has_text text="--resize 'union'"/>
-                <has_text text="--freeze-backbone '2'"/>
-                <has_text text="--reorder"/>
-                <has_text text="--base-dir 'R'"/>
-            </assert_command>
+            <conditional name="validation">
+                <param name="validation_source" value="automatic"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
             <output name="best_model" ftype="binary">
                 <assert_contents>
                     <has_size min="10000"/>

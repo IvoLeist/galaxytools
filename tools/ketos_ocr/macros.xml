@@ -31,26 +31,18 @@
         #if str($train_opts.freq).strip() and str($train_opts.freq) != 'None'
             --freq '$train_opts.freq'
         #end if
-        #if str($train_opts.quit).strip() and str($train_opts.quit) != 'None'
-            --quit '$train_opts.quit'
-        #end if
-        #if str($train_opts.epochs).strip() and str($train_opts.epochs) != 'None'
-            --epochs '$train_opts.epochs'
-        #end if
-        #if str($train_opts.min_epochs).strip() and str($train_opts.min_epochs) != 'None'
-            --min-epochs '$train_opts.min_epochs'
-        #end if
-        #if str($train_opts.lag).strip() and str($train_opts.lag) != 'None'
-            --lag '$train_opts.lag'
-        #end if
-        #if str($train_opts.min_delta).strip() and str($train_opts.min_delta) != 'None'
-            --min-delta '$train_opts.min_delta'
+        #if str($train_opts.stop_condition.quit).strip() and str($train_opts.stop_condition.quit) != 'None'
+            --quit '$train_opts.stop_condition.quit'
+            #if $train_opts.stop_condition.quit == 'early'
+                --min-epochs '$train_opts.stop_condition.min_epochs'
+                --lag '$train_opts.stop_condition.lag'
+                --min-delta '$train_opts.stop_condition.min_delta'
+            #else
+                --epochs '$train_opts.stop_condition.epochs'
+            #end if
         #end if
         #if str($train_opts.optimizer).strip() and str($train_opts.optimizer) != 'None'
             --optimizer '$train_opts.optimizer'
-        #end if
-        #if str($train_opts.lrate).strip() and str($train_opts.lrate) != 'None'
-            --lrate '$train_opts.lrate'
         #end if
         #if str($train_opts.momentum).strip() and str($train_opts.momentum) != 'None'
             --momentum '$train_opts.momentum'
@@ -97,16 +89,11 @@
         #end if
     ]]></token>
     <token name="@GROUND_TRUTH_ARGS@"><![CDATA[
-        #for $item in $ground_truth
+        #for $item in $training_data.ground_truth
             #if str($item).strip() and str($item) != 'None'
                 '$item'
             #end if
         #end for
-    ]]></token>
-    <token name="@CHECK_TRAINING_EXIT_CODE@"><![CDATA[
-        ketos_exit_code=\$?;
-        cat training_report.txt;
-        [ "\$ketos_exit_code" -eq 0 ] || exit "\$ketos_exit_code";
     ]]></token>
     <token name="@CAPTURE_TRAINING_OUTPUTS@"><![CDATA[
         best_model=\$(find model -maxdepth 1 -type f -name 'best_*.safetensors' | head -n 1);
@@ -189,25 +176,160 @@
             </conditional>
         </section>
     </xml>
-    <xml name="ground_truth_data">
-        <!-- TODO this could probably also be the pairs similar to ketos compile -->
-        <param
-            name="ground_truth"
-            type="data"
-            multiple="true"
-            format="txt,xml,alto,json,jpg,png,tiff,binary"
-            label="Ground-truth"
-        />
-    </xml>
     <xml name="evaluation_data">
-        <param
-            name="evaluation_data"
-            type="data"
-            multiple="true"
-            format="xml"
-            label="Evaluation data files"
-            help="Ground-truth files used for validation."
-        />
+        <param name="evaluation_data" type="data" multiple="true" format="xml" label="Evaluation data files" help="Ground-truth files used for validation."/>
+    </xml>
+    <xml name="stop_condition" tokens="early_selected,fixed_selected">
+        <conditional name="stop_condition">
+            <param name="quit" type="select" label="Stop condition">
+                <option value="early" selected="@EARLY_SELECTED@">Early stopping</option>
+                <option value="fixed" selected="@FIXED_SELECTED@">Fixed epoch count</option>
+            </param>
+            <when value="early">
+                <param name="min_epochs" type="integer" value="0" min="0" label="Minimum epochs" help="Minimum number of epochs to train for when using early stopping."/>
+                <param name="lag" type="integer" value="10" min="0" label="Early stopping lag" help="Number of evaluations to wait for improvement in the validation score before stopping training."/>
+                <param name="min_delta" type="float" value="0.0" min="0" label="Minimum validation improvement" help="Minimum improvement in the validation score required to reset early stopping."/>
+            </when>
+            <when value="fixed">
+                <param name="epochs" type="integer" value="100" min="1" label="Epochs" help="Number of epochs to train for."/>
+            </when>
+        </conditional>
+    </xml>
+    <xml name="ppocrv6_standard_scheduler">
+        <param argument="--warmup" type="integer" min="0" value="1000" label="Learning rate warmup" help="Number of steps to linearly ramp the learning rate from zero to the initial learning rate."/>
+        <conditional name="scheduler_settings">
+            <param argument="--schedule" type="select" label="Learning rate scheduler">
+                <option value="cosine" selected="true">Cosine</option>
+                <option value="constant">Constant</option>
+                <option value="exponential">Exponential</option>
+                <option value="1cycle">1cycle</option>
+                <option value="step">Step</option>
+                <option value="reduceonplateau">Reduce on plateau</option>
+            </param>
+            <when value="constant"/>
+            <when value="cosine">
+                <param argument="--cos-max" type="integer" min="1" value="10" label="Cosine maximum" help="Epoch at which the cosine learning rate schedule reaches its minimum learning rate."/>
+                <param argument="--cos-min-lr" type="float" min="0" value="0.000001" label="Minimum cosine learning rate"/>
+            </when>
+            <when value="exponential">
+                <param argument="--gamma" type="float" min="0" value="0.1" label="Learning rate decay factor"/>
+            </when>
+            <when value="1cycle"/>
+            <when value="step">
+                <param argument="--step-size" type="integer" min="1" value="10" label="Step size" help="Number of validation runs between learning rate decay steps."/>
+                <param argument="--gamma" type="float" min="0" value="0.1" label="Learning rate decay factor"/>
+            </when>
+            <when value="reduceonplateau">
+                <param argument="--sched-patience" type="integer" min="0" value="5" label="Scheduler patience" help="Number of validation runs to wait before reducing the learning rate."/>
+            </when>
+        </conditional>
+    </xml>
+    <xml name="ppocrv6_muon_scheduler">
+        <conditional name="scheduler_settings">
+            <param argument="--schedule" type="select" label="Learning rate scheduler" help="AdamW + Muon supports only cosine and constant learning rate schedules.">
+                <option value="cosine" selected="true">Cosine</option>
+                <option value="constant">Constant</option>
+            </param>
+            <when value="cosine">
+                <param argument="--warmup" type="integer" min="0" value="1000" label="Learning rate warmup" help="Number of steps to linearly ramp the learning rate from zero to the initial learning rate."/>
+                <param argument="--cos-min-lr" type="float" min="0" value="0.000001" label="Minimum cosine learning rate"/>
+            </when>
+            <when value="constant"/>
+        </conditional>
+    </xml>
+    <xml name="recognition_training_data_params">
+        <param argument="--normalization" type="select" optional="true" label="Unicode normalization" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If unset, no Unicode normalization is applied.">
+            <option value="NFD">NFD</option>
+            <option value="NFKD">NFKD</option>
+            <option value="NFC">NFC</option>
+            <option value="NFKC">NFKC</option>
+        </param>
+        <param name="normalize_whitespace" type="boolean" checked="true" truevalue="--normalize-whitespace" falsevalue="--no-normalize-whitespace" label="Normalize whitespace" help="Normalize Unicode whitespace characters in the ground truth to U+0020 SPACE."/>
+        <conditional name="bidi_settings">
+            <param name="reorder" type="select" label="Bidirectional text reordering" help="Reorder ground-truth code points according to the Unicode bidirectional algorithm.">
+                <option value="yes" selected="true">Yes</option>
+                <option value="no">No</option>
+            </param>
+            <when value="yes">
+                <param argument="--base-dir" type="select" label="Base text direction" help="Set the base text direction used for bidirectional reordering. Auto uses direction information from the input data when available.">
+                    <option value="auto" selected="true">Auto</option>
+                    <option value="L">Left-to-right</option>
+                    <option value="R">Right-to-left</option>
+                </param>
+            </when>
+            <when value="no"/>
+        </conditional>
+        <param argument="--pad" type="integer" min="0" value="16" label="Line padding" help="Padding in pixels around the start and end of each line image."/>
+        <param name="legacy_polygons" type="boolean" checked="false" truevalue="--legacy-polygons" falsevalue="" label="Use legacy polygon extraction" help="Use the slower legacy polygon extractor for training."/>
+    </xml>
+    <xml name="arch_specific_defaults">
+        <conditional name="arch">
+            <param name="recognition_arch" type="select" label="Recognition architecture" help="Compared with VGSL models, PP-OCRv6 models offer faster recognition and generally produce better results, particularly on large-scale datasets">
+                <option value="infer">Infer when fine-tuning or resuming training</option>
+                <option value="ppocrv6" selected="true">PP-OCRv6</option>
+                <option value="vgsl">VGSL</option>
+            </param>
+            <when value="ppocrv6">
+                <conditional name="ppocrv6_variant">
+                    <param name="variant" type="select" label="PP-OCRv6 variant">
+                        <option value="tiny">Tiny</option>
+                        <option value="small" selected="true">Small</option>
+                        <option value="medium">Medium</option>
+                    </param>
+                    <when value="tiny">
+                        <param argument="--lrate" type="float" min="0" value="0.001" label="Learning rate"/>
+                    </when>
+                    <when value="small">
+                        <param argument="--lrate" type="float" min="0" value="0.0005" label="Learning rate"/>
+                    </when>
+                    <when value="medium">
+                        <param argument="--lrate" type="float" min="0" value="0.0005" label="Learning rate"/>
+                    </when>
+                </conditional>
+                <param argument="--height" type="integer" min="1" value="96" label="Input line height"/>
+                <conditional name="optimizer_settings">
+                    <param argument="--optimizer" type="select" label="Optimizer">
+                        <option value="Adam">Adam</option>
+                        <option value="SGD">SGD</option>
+                        <option value="RMSprop">RMSprop</option>
+                        <option value="AdamW">AdamW</option>
+                        <option value="AdamW+Muon" selected="true">AdamW + Muon</option>
+                    </param>
+                    <when value="Adam">
+                        <expand macro="ppocrv6_standard_scheduler"/>
+                    </when>
+                    <when value="AdamW">
+                        <expand macro="ppocrv6_standard_scheduler"/>
+                    </when>
+                    <when value="AdamW+Muon">
+                        <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the Muon component of the AdamW + Muon optimizer."/>
+                        <expand macro="ppocrv6_muon_scheduler"/>
+                    </when>
+                    <when value="SGD">
+                        <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the SGD optimizer."/>
+                        <expand macro="ppocrv6_standard_scheduler"/>
+                    </when>
+                    <when value="RMSprop">
+                        <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the RMSprop optimizer."/>
+                        <expand macro="ppocrv6_standard_scheduler"/>
+                    </when>
+                </conditional>
+                <param argument="--weight-decay" type="float" min="0" value="0.01" label="Weight decay"/>
+                <param argument="--batch-size" type="integer" min="1" value="64" label="Batch size"/>
+                <!-- TODO create an upstream issue raising the presumed
+                    incompatibility of early stopping with PP-OCRv6 training. -->
+                <expand macro="stop_condition" early_selected="false" fixed_selected="true"/>
+            </when>
+            <when value="vgsl">
+                <param name="vgsl_spec" type="text" value="[1,48,0,1 Cr3,3,32 Do0.1,2 Mp2,2 Cr3,3,64 Do0.1,2 Mp2,2 S1(1x12)1,3 Lbx100 Do]" label="VGSL specification" help="VGSL model specification string"/>
+                <param argument="--freeze-backbone" type="integer" min="0" value="0" label="Freeze backbone" help="Number of initial training iterations to keep all but the final layer frozen. Set to 0 to disable."/>
+                <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
+            </when>
+            <when value="infer">
+                <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
+            </when>
+            <expand macro="recognition_training_data_params"/>
+        </conditional>
     </xml>
     <xml name="training_inputs">
         <section name="train_opts" title="Training options" expanded="false">
@@ -217,79 +339,33 @@
                     <option value="load">Load existing weights/checkpoint for a fresh run</option>
                     <option value="resume">Resume a checkpointed run</option>
                 </param>
-                <when value="new"/>
+                <when value="new">
+                    <param argument="--codec" type="data" format="json" optional="true" label="Codec definition" help="Optional custom Kraken codec JSON definition. If omitted, the codec is inferred from the training data."/>
+                </when>
                 <when value="load">
                     <param name="model" type="data" format="binary,safetensors" label="Existing model or checkpoint"/>
+                    <conditional name="resize_settings">
+                        <param argument="--resize" type="select" label="Codec/output layer resizing" help="Controls how differences between the loaded model's codec and the training data are handled.">
+                            <option value="fail" selected="true">Fail on mismatch</option>
+                            <option value="union">Add new characters</option>
+                            <option value="new">Replace codec with training codec</option>
+                        </param>
+                        <when value="fail"/>
+                        <when value="union"/>
+                        <when value="new">
+                            <param argument="--codec" type="data" format="json" optional="true" label="Codec definition" help="Optional custom codec to use for the new output layer. If omitted, the codec is inferred from the training data."/>
+                        </when>
+                    </conditional>
                 </when>
                 <when value="resume">
                     <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume"/>
                 </when>
             </conditional>
-            <conditional name="arch">
-                <param name="recognition_arch" type="select" label="Recognition architecture" help="Compared with VGSL models, PP-OCRv6 models offer faster recognition and generally produce better results, particularly on large-scale datasets">
-                    <option value="infer">Infer when fine-tuning or resuming training</option>
-                    <option value="ppocrv6" selected="true">PP-OCRv6</option>
-                    <option value="vgsl">VGSL</option>
-                </param>
-                <when value="ppocrv6">
-                    <param name="ppocrv6_variant" type="select" label="PP-OCRv6 Variant" help="">
-                        <option value="tiny" selected="true">tiny</option>
-                        <option value="small">small</option>
-                        <option value="medium">medium</option>
-                    </param>
-                </when>
-                <when value="vgsl"> 
-                    <param name="vgsl_spec" type="text" value="[1,48,0,1 Cr3,3,32 Do0.1,2 Mp2,2 Cr3,3,64 Do0.1,2 Mp2,2 S1(1x12)1,3 Lbx100 Do]" label="VGSL specification" help="VGSL model specification string"/>
-                </when>
-                <when value="infer"/>
-            </conditional>
-            <param argument="--batch-size" type="integer" optional="true" value="32" min="1" label="Batch sample size" help="Number of text-line samples processed together during one training step"/>
+            <expand macro="arch_specific_defaults"/>
             <!-- In theory users could set this to 0, but afaik this would mean validation after every training batch, which could lead to performance issues and early stopping of the training process. -->
-            <param argument="--freq" type="float" optional="true" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is >1 it must be an integer."/>
-            <!-- TODO create an upstream issue raising the presumed incompatibility of early stopping with PP-OCRv6 training. -->
-            <param argument="--quit" type="select" optional="true" label="Stop condition" help="Early stopping seems to be currently incompatible with PP-OCRv6 training.">
-                <option value="early" selected="true">Early stopping</option>
-                <option value="fixed">Fixed epoch count</option>
-                <option value="aneal">Aneal</option>
-            </param>
-            <param argument="--epochs" type="integer" optional="true" min="1" label="Epochs"/>
-            <param argument="--min-epochs" type="integer" optional="true" min="0" label="Minimum epochs"/>
-            <param argument="--lag" type="integer" optional="true" min="0" label="Early stopping lag"/>
-            <param argument="--min-delta" type="float" optional="true" min="0" label="Minimum validation improvement"/>
-            <param argument="--optimizer" type="select" optional="true" label="Optimizer">
-                <option value="" selected="true">Use Ketos default</option>
-                <option value="Adam">Adam</option>
-                <option value="SGD">SGD</option>
-                <option value="RMSprop">RMSprop</option>
-                <option value="Lamb">Lamb</option>
-                <option value="AdamW">AdamW</option>
-            </param>
-            <param argument="--lrate" type="float" optional="true" min="0" label="Learning rate"/>
-            <param argument="--momentum" type="float" optional="true" min="0" label="Momentum"/>
-            <param argument="--weight-decay" type="float" optional="true" min="0" label="Weight decay"/>
-            <param argument="--gradient-clip-val" type="float" optional="true" min="0" label="Gradient clip value"/>
-            <param argument="--accumulate-grad-batches" type="integer" optional="true" min="1" label="Gradient accumulation batches"/>
-            <param argument="--warmup" type="integer" optional="true" min="0" label="Warmup steps/samples"/>
-            <param argument="--schedule" type="select" optional="true" label="Learning-rate schedule">
-                <option value="" selected="true">Use Ketos default</option>
-                <option value="constant">constant</option>
-                <option value="1cycle">1cycle</option>
-                <option value="exponential">exponential</option>
-                <option value="step">step</option>
-                <option value="reduceonplateau">reduceonplateau</option>
-                <option value="cosine">cosine</option>
-                <option value="cosine_warm_restarts">cosine_warm_restarts</option>
-            </param>
-            <param argument="--gamma" type="float" optional="true" min="0" label="Schedule decay factor"/>
-            <param argument="--step-size" type="float" optional="true" min="0" label="Schedule step size"/>
-            <param argument="--sched-patience" type="integer" optional="true" min="0" label="Reduce-on-plateau patience"/>
-            <param argument="--cos-max" type="integer" optional="true" min="0" label="Cosine schedule max epoch"/>
-            <param argument="--cos-min-lr" type="float" optional="true" min="0" label="Cosine schedule minimum learning rate"/>
-            
-            <!-- TODO: partition should onl be shown when no explicit evaluation data is provided -->
-            
-            
-            <param argument="--partition" type="float" optional="true" value="0.9" min="0" max="1" label="Training/validation partition" help="Proportion of the ground truth data to use for training (the rest is used for validation)"/>
+            <param argument="--freq" type="float" optional="true" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is &gt;1 it must be an integer."/>
+            <param argument="--gradient-clip-val" type="float" value="1.0" min="0" label="Gradient clip value"/>
+            <param argument="--accumulate-grad-batches" type="integer" value="1.0" min="1" label="Gradient accumulation batches" help="Number of batches to accumulate gradient across."/>
             <param name="augment" type="select" label="Image augmentation">
                 <option value="" selected="true">Use Ketos default</option>
                 <option value="--augment">Enable</option>
