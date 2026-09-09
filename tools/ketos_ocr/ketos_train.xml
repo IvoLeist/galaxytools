@@ -11,6 +11,37 @@
         KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
         KETOS_THREADS="\${KETOS_THREADS:-1}" &&
 
+        #if $training_data.format_type != 'binary'
+            #set $input_source = $training_data.input_source
+
+            #if $input_source.source == 'repeat'
+                #set $pairs = $input_source.ground_truth_pairs
+            #else
+                #set $pairs = $input_source.ground_truth_collection
+            #end if
+
+            #for $i, $pair in enumerate($pairs)
+                #if $input_source.source == 'repeat'
+                    #set $image = $pair.image
+                    #set $annotation = $pair.annotation
+                #else
+                    #set $image = $pair.forward
+                    #set $annotation = $pair.reverse
+                #end if
+
+                @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
+
+                #if $training_data.format_type == 'path'
+                    ln -s '$image' 'ground_truth_${i}.${image.ext}' &&
+                    ln -s '$annotation' 'ground_truth_${i}.gt.txt' &&
+                #else
+                    mkdir -p 'ground_truth_${i}' &&
+                    ln -s '$image' 'ground_truth_${i}/input.${image.ext}' &&
+                    ln -s '$annotation' 'ground_truth_${i}/annotation.xml' &&
+                #end if
+            #end for
+        #end if
+
         mkdir -p model logs &&
         
         ketos_exit_code=0 &&
@@ -62,7 +93,22 @@
             #if $train_opts.legacy_polygons
                 --legacy-polygons
             #end if
-            @GROUND_TRUTH_ARGS@
+            #if $training_data.format_type == 'binary'
+                @GROUND_TRUTH_ARGS@
+            #else
+                #for $i, $pair in enumerate($pairs)
+                    #if $training_data.format_type == 'path'
+                        #if $input_source.source == 'repeat'
+                            #set $image = $pair.image
+                        #else
+                            #set $image = $pair.forward
+                        #end if
+                        'ground_truth_${i}.${image.ext}'
+                    #else
+                        'ground_truth_${i}/annotation.xml'
+                    #end if
+                #end for
+            #end if
             > training_report.txt 2>&1 || ketos_exit_code=\$?;
 
         cat training_report.txt;
