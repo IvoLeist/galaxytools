@@ -15,69 +15,50 @@
         ketos_exit_code=0
         
         ketos
-            #if str($training_opts.config).strip() and str($training_opts.config) != 'None'
-                --config '$training_opts.config'
+            #if str($global_opts.config).strip() and str($global_opts.config) != 'None'
+                --config '$global_opts.config'
             #end if
             --device "\$KETOS_DEVICE"
             --workers "\$KETOS_WORKERS"
             --threads "\$KETOS_THREADS"
-            #if str($training_opts.precision).strip() and str($training_opts.precision) != 'None'
-                --precision '$training_opts.precision'
+            #if str($global_opts.precision.dtype) in ('16', 'bf16'):
+                --precision '${global_opts.precision.dtype}-${global_opts.precision.mode}'
+            #elif str($global_opts.precision.dtype) in ('32', '64'):
+                --precision '${global_opts.precision.dtype}-true'
+            #else:
+                --precision '${global_opts.precision.dtype}'
             #end if
 
-            #if str('$training_opts.deterministic') == 'deterministic'
-                #if str($training_opts.seed).strip() and str($training_opts.seed) != 'None'
-                    --seed '$training_opts.seed'
-                #else
-                    --seed 42
-                #end if
+            $global_opts.deterministic.mode
+            #if $global_opts.deterministic.mode == '--deterministic'
+                --seed '$global_opts.deterministic.seed'
             #end if
             train
-            @TRAINING_ARGS@
-            #if str('$training_data.format_type').strip() and str('$training_data.format_type') != 'None'
+            @RECOGNITION_TRAINING_ARGS@
+            #if str($training_data.format_type).strip() and str($training_data.format_type) != 'None'
                 --format-type '$training_data.format_type'
             #end if
-            #if str($train_opts.arch.recognition_arch).strip() and str($train_opts.arch.recognition_arch) != 'None'
-                --arch '$train_opts.arch.recognition_arch'
-            #end if
-            #if str('$train_opts.arch.recognition_arch') == 'ppocrv6'
-                --variant '$train_opts.ppocrv6_variant'           
-            #end if
-            #if str('$train_opts.arch.recognition_arch') == 'vgsl'
-                --spec '$train_opts.vgsl_spec'
-            #end if
-            --lrate '$train_opts.lrate'
-
-            #if $validation.validation_source == "automatic"
+            #if $validation.validation_source == "training_data_split"
                 --partition '$validation.partition'
             #else
                 --evaluation-data '$evaluation_manifest'
             #end if
-            #if str($pad).strip() and str($pad) != 'None'
-                --pad '$pad'
+            #if str($train_opts.pad).strip() and str($train_opts.pad) != 'None'
+                --pad '$train_opts.pad'
             #end if
-            #if str($normalization).strip() and str($normalization) != 'None'
-                --normalization '$normalization'
+            #if str($train_opts.normalization).strip() and str($train_opts.normalization) != 'None'
+                --normalization '$train_opts.normalization'
             #end if
-            #if str($normalize_whitespace).strip() and str($normalize_whitespace) != 'None'
-                $normalize_whitespace
+            #if str($train_opts.normalize_whitespace).strip() and str($train_opts.normalize_whitespace) != 'None'
+                $train_opts.normalize_whitespace
             #end if
-            #if str($codec).strip() and str($codec) != 'None'
-                --codec '$codec'
+            #if $train_opts.bidi_settings.reorder == 'yes'
+                --reorder
+                --base-dir '$train_opts.bidi_settings.base_dir'
+            #else
+                --no-reorder
             #end if
-            #if str($resize).strip() and str($resize) != 'None'
-                --resize '$resize'
-            #end if
-            #if str($freeze_backbone).strip() and str($freeze_backbone) != 'None'
-                --freeze-backbone '$freeze_backbone'
-            #end if
-            #if str($reorder).strip() and str($reorder) != 'None'
-                $reorder
-                #if $reorder == '--reorder'
-                    --base-dir '$base_dir'
-                #end if
-            #end if
-            #if $legacy_polygons
+            #if $train_opts.legacy_polygons
                 --legacy-polygons
             #end if
             @GROUND_TRUTH_ARGS@
@@ -119,15 +100,15 @@
         <expand macro="ketos_training_options"/>
         <expand macro="training_inputs"/>
         <conditional name="validation">
-            <param name="validation_source" type="select" label="Validation">
-                <option value="automatic" selected="true">
-                    Automatically split training data
+            <param name="validation_source" type="select" label="Validation data source">
+                <option value="training_data_split" selected="true">
+                    Data split from training data
                 </option>
                 <option value="explicit">
-                    Use explicit validation data
+                    Explicit validation data
                 </option>
             </param>
-            <when value="automatic">
+            <when value="training_data_split">
                 <param name="partition" type="float" value="0.9" min="0" max="1" label="Training data fraction" help="Fraction of the provided ground-truth samples used for training. The remaining samples are used for validation."/>
             </when>
             <when value="explicit">
@@ -151,6 +132,7 @@
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="ppocrv6"/>
+                    <param name="batch_size" value="1"/>
                     <conditional name="ppocrv6_variant">
                         <param name="variant" value="tiny"/>
                     </conditional>
@@ -159,14 +141,18 @@
                         <param name="epochs" value="1"/>
                     </conditional>
                 </conditional>
-                <param name="batch_size" value="1"/>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
             </section>
             <conditional name="validation">
-                <param name="validation_source" value="automatic"/>
+                <param name="validation_source" value="training_data_split"/>
                 <param name="partition" value="0.75"/>
             </conditional>
+            <assert_command>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--variant 'tiny'"/>
+                <has_text text="--epochs '1'"/>
+            </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
                     <has_size min="10000"/>
@@ -190,6 +176,9 @@
                 <conditional name="initialization">
                     <param name="source" value="load"/>
                     <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+                    <conditional name="resize_settings">
+                        <param name="resize" value="union"/>
+                    </conditional>
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="infer"/>
@@ -198,18 +187,17 @@
                         <param name="epochs" value="1"/>
                     </conditional>
                 </conditional>
-                <param name="batch_size" value="1"/>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
+                <param name="normalization" value="NFKC"/>
+                <param name="normalize_whitespace" value="false"/>
+                <conditional name="bidi_settings">
+                    <param name="reorder" value="yes"/>
+                    <param name="base_dir" value="R"/>
+                </conditional>
             </section>
-            <param name="normalization" value="NFKC"/>
-            <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
-            <param name="resize" value="union"/>
-            <param name="freeze_backbone" value="2"/>
-            <param name="reorder" value="--reorder"/>
-            <param name="base_dir" value="R"/>
             <conditional name="validation">
-                <param name="validation_source" value="automatic"/>
+                <param name="validation_source" value="training_data_split"/>
                 <param name="partition" value="0.75"/>
             </conditional>
             <output name="best_model" ftype="binary">

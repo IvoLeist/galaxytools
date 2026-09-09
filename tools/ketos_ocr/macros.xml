@@ -17,6 +17,78 @@
         } &&
     #end if
     ]]></token>
+    <token name="@RECOGNITION_TRAINING_ARGS@"><![CDATA[
+        --output model
+        --weights-format safetensors
+        #if $train_opts.initialization.source == 'load'
+            --load '$train_opts.initialization.model'
+            --resize '$train_opts.initialization.resize_settings.resize'
+            #if $train_opts.initialization.resize_settings.resize == 'new' and $train_opts.initialization.resize_settings.codec
+                --codec '$train_opts.initialization.resize_settings.codec'
+            #end if
+        #elif $train_opts.initialization.source == 'resume'
+            --resume '$train_opts.initialization.checkpoint'
+        #elif $train_opts.initialization.codec
+            --codec '$train_opts.initialization.codec'
+        #end if
+        #set $arch = $train_opts.arch
+        #if $arch.recognition_arch != 'infer'
+            --arch '$arch.recognition_arch'
+        #end if
+        #if $arch.recognition_arch == 'ppocrv6'
+            --variant '$arch.ppocrv6_variant.variant'
+            --lrate '$arch.ppocrv6_variant.lrate'
+            --height '$arch.height'
+            --batch-size '$arch.batch_size'
+            --weight-decay '$arch.weight_decay'
+            #set $optimizer = $arch.optimizer_settings
+            --optimizer '$optimizer.optimizer'
+            #if $optimizer.optimizer in ('SGD', 'RMSprop', 'AdamW+Muon')
+                --momentum '$optimizer.momentum'
+            #end if
+            #set $scheduler = $optimizer.scheduler_settings
+            --schedule '$scheduler.schedule'
+            #if $optimizer.optimizer != 'AdamW+Muon'
+                --warmup '$optimizer.warmup'
+            #elif $scheduler.schedule == 'cosine'
+                --warmup '$scheduler.warmup'
+            #end if
+            #if $scheduler.schedule == 'cosine'
+                --cos-min-lr '$scheduler.cos_min_lr'
+                #if $optimizer.optimizer != 'AdamW+Muon'
+                    --cos-max '$scheduler.cos_max'
+                #end if
+            #elif $scheduler.schedule == 'exponential'
+                --gamma '$scheduler.gamma'
+            #elif $scheduler.schedule == 'step'
+                --step-size '$scheduler.step_size'
+                --gamma '$scheduler.gamma'
+            #elif $scheduler.schedule == 'reduceonplateau'
+                --sched-patience '$scheduler.sched_patience'
+            #end if
+        #elif $arch.recognition_arch == 'vgsl'
+            --spec '$arch.vgsl_spec'
+            --freeze-backbone '$arch.freeze_backbone'
+        #end if
+        --quit '$arch.stop_condition.quit'
+        #if $arch.stop_condition.quit == 'early'
+            --min-epochs '$arch.stop_condition.min_epochs'
+            --lag '$arch.stop_condition.lag'
+            --min-delta '$arch.stop_condition.min_delta'
+        #else
+            --epochs '$arch.stop_condition.epochs'
+        #end if
+        #if str($train_opts.freq).strip() and str($train_opts.freq) != 'None'
+            --freq '$train_opts.freq'
+        #end if
+        --gradient-clip-val '$train_opts.gradient_clip_val'
+        --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
+        $train_opts.augment
+        #if $train_opts.logger.enabled == 'yes'
+            --logger '$train_opts.logger.kind'
+            --log-dir logs
+        #end if
+    ]]></token>
     <token name="@TRAINING_ARGS@"><![CDATA[
         --output model
         --weights-format safetensors
@@ -104,6 +176,10 @@
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="@TOOL_VERSION@">kraken-ocr</requirement>
+            <!-- below only available when using a NVIDIA GPU 
+                required for numerical precision options: transformer-engine, transformer-engine-float16 
+            -->
+            <!-- <requirement type="package" version="2.17">transformer-engine-torch</requirement> -->
         </requirements>
     </xml>
     <xml name="creators">
@@ -155,15 +231,36 @@
         <expand macro="compile_training_data_input" format_type="alto" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation"/>
         <expand macro="compile_training_data_input" format_type="page" pair_label="page image/PAGE" annotation_format="page.xml" annotation_label="PAGE annotation"/>
     </xml>
+    <xml name="precision_mode">
+        <param name="mode" type="select" label="Precision mode">
+            <option value="mixed" selected="true">Mixed</option>
+            <option value="true">True</option>
+        </param>
+    </xml>
     <xml name="ketos_training_options">
-        <section name="training_opts" title="Ketos options" expanded="false">
+        <section name="global_opts" title="Global options" expanded="false">
             <param name="config" type="data" format="yaml" optional="true" label="Experiment YAML configuration" help="Optional ketos --config file. Command-line options selected below are still passed explicitly."/>
-            <param argument="--precision" type="select" optional="true" label="Numerical precision">
-                <option value="64-true" selected="true">64-bit</option>
-                <option value="32-true">32-bit</option>
-                <option value="16-mixed">16-bit mixed</option>
-                <option value="bf16-mixed">bfloat16 mixed</option>
-            </param>
+            <conditional name="precision">
+                <param name="dtype" type="select" label="Numerical precision">
+                    <option value="32" selected="true">32-bit floating point (FP32)</option>
+                    <option value="16">16-bit floating point (FP16)</option>
+                    <option value="bf16">BFloat16 (BF16)</option>
+                    <option value="64">64-bit floating point (FP64)</option>
+                    <!-- below only available when using a NVIDIA GPU -->
+                    <!-- <option value="transformer-engine">Transformer Engine: FP8 mixed precision (BF16 weights)</option>
+                    <option value="transformer-engine-float16">Transformer Engine: FP8 mixed precision (FP16 weights)</option> -->
+                </param>
+                <when value="32"/>
+                <when value="16">
+                    <expand macro="precision_mode"/>
+                </when>
+                <when value="bf16">
+                    <expand macro="precision_mode"/>
+                </when>
+                <when value="64"/>
+                <!-- <when value="transformer-engine"/>
+                <when value="transformer-engine-float16"/> -->
+            </conditional>
             <conditional name="deterministic">
                 <param name="mode" type="select" label="Deterministic training">
                     <option value="--deterministic">Enable</option>
@@ -238,7 +335,8 @@
         </conditional>
     </xml>
     <xml name="recognition_training_data_params">
-        <param argument="--normalization" type="select" optional="true" label="Unicode normalization" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If unset, no Unicode normalization is applied.">
+        <param argument="--normalization" type="select" label="Unicode normalization" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If unset, no Unicode normalization is applied.">
+            <option value="None" selected="true">false</option>
             <option value="NFD">NFD</option>
             <option value="NFKD">NFKD</option>
             <option value="NFC">NFC</option>
@@ -252,7 +350,7 @@
             </param>
             <when value="yes">
                 <param argument="--base-dir" type="select" label="Base text direction" help="Set the base text direction used for bidirectional reordering. Auto uses direction information from the input data when available.">
-                    <option value="auto" selected="true">Auto</option>
+                    <option value="auto" selected="true">auto</option>
                     <option value="L">Left-to-right</option>
                     <option value="R">Right-to-left</option>
                 </param>
@@ -328,7 +426,6 @@
             <when value="infer">
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
-            <expand macro="recognition_training_data_params"/>
         </conditional>
     </xml>
     <xml name="training_inputs">
@@ -362,19 +459,19 @@
                 </when>
             </conditional>
             <expand macro="arch_specific_defaults"/>
+            <expand macro="recognition_training_data_params"/>
             <!-- In theory users could set this to 0, but afaik this would mean validation after every training batch, which could lead to performance issues and early stopping of the training process. -->
-            <param argument="--freq" type="float" optional="true" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is &gt;1 it must be an integer."/>
+            <param argument="--freq" type="float" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is &gt;1 it must be an integer."/>
             <param argument="--gradient-clip-val" type="float" value="1.0" min="0" label="Gradient clip value"/>
-            <param argument="--accumulate-grad-batches" type="integer" value="1.0" min="1" label="Gradient accumulation batches" help="Number of batches to accumulate gradient across."/>
+            <param argument="--accumulate-grad-batches" type="integer" value="1" min="1" label="Gradient accumulation batches" help="Number of batches to accumulate gradient across."/>
             <param name="augment" type="select" label="Image augmentation">
-                <option value="" selected="true">Use Ketos default</option>
-                <option value="--augment">Enable</option>
-                <option value="--no-augment">Disable</option>
+                <option value="--no-augment" selected="true">disabled</option>
+                <option value="--augment">enabled</option>
             </param>
             <conditional name="logger">
                 <param name="enabled" type="select" label="Metric logger">
-                    <option value="no" selected="true">Disabled</option>
-                    <option value="yes">Enabled</option>
+                    <option value="no" selected="true">disabled</option>
+                    <option value="yes">enabled</option>
                 </param>
                 <when value="no"/>
                 <when value="yes">
