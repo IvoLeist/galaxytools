@@ -159,7 +159,7 @@
                 <param name="partition" type="float" value="0.9" min="0" max="1" label="Training data fraction" help="Fraction of the provided ground-truth samples used for training. The remaining samples are used for validation."/>
             </when>
             <when value="explicit">
-                <expand macro="evaluation_data"/>
+                <param name="evaluation_data" type="data" multiple="true" format="arrow,xml" label="Evaluation data files" help="Ground-truth files used for validation. Use Arrow datasets with binary training data."/>
             </when>
         </conditional>
     </inputs>
@@ -525,6 +525,114 @@
                 </param>
             </conditional>
         </expand>
+        <!-- Explicit validation from 1 Arrow dataset(s). -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="binary" />
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow" />
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new" />
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl" />
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]" />
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed" />
+                        <param name="epochs" value="1" />
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1" />
+                <param name="augment" value="--no-augment" />
+                <param name="normalization" value="NFKC" />
+                <param name="normalize_whitespace" value="false" />
+                <conditional name="bidi_settings">
+                    <param name="reorder" value="yes" />
+                    <param name="base_dir" value="R" />
+                </conditional>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="explicit" />
+                <param name="evaluation_data" value="ketos_train_validation_1.arrow" ftype="arrow" />
+            </conditional>
+            <assert_command>
+                <has_text text="--arch 'vgsl'" />
+                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'" />
+                <has_text text="--quit 'fixed'" />
+                <has_text text="--epochs '1'" />
+                <not_has_text text="--optimizer" />
+                <not_has_text text="--variant" />
+                <has_text text="--evaluation-data" />
+                <not_has_text text="--partition" />
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000" />
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model." />
+                    <has_text text="Converting best model" />
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1" />
+        </test>
+        <!-- Explicit validation from 2 Arrow dataset(s). -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="binary" />
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow" />
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new" />
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl" />
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]" />
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed" />
+                        <param name="epochs" value="1" />
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1" />
+                <param name="augment" value="--no-augment" />
+                <param name="normalization" value="NFKC" />
+                <param name="normalize_whitespace" value="false" />
+                <conditional name="bidi_settings">
+                    <param name="reorder" value="yes" />
+                    <param name="base_dir" value="R" />
+                </conditional>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="explicit" />
+                <param name="evaluation_data" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow" />
+            </conditional>
+            <assert_command>
+                <has_text text="--arch 'vgsl'" />
+                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'" />
+                <has_text text="--quit 'fixed'" />
+                <has_text text="--epochs '1'" />
+                <not_has_text text="--optimizer" />
+                <not_has_text text="--variant" />
+                <has_text text="--evaluation-data" />
+                <not_has_text text="--partition" />
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000" />
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model." />
+                    <has_text text="Converting best model" />
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1" />
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end.

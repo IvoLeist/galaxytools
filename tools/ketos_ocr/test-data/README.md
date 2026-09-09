@@ -31,3 +31,9 @@ The specification intentionally omits an output block: during recognition
 training Ketos appends the CTC output layer sized to the alphabet found in the
 training data. This minimal convolution-and-reshape network is suitable for
 testing the training workflow, not for producing an accurate OCR model.
+
+`ketos_train_validation_1.arrow` and `ketos_train_validation_2.arrow` contain
+the first and last two records, respectively, of `ketos_train_recognition.arrow`.
+Their metadata record counts are updated to two. These fixtures exercise explicit
+validation with one or multiple files. They overlap the training fixture because
+these are workflow smoke tests, not model-quality evaluations.
