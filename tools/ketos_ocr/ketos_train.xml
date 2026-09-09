@@ -12,7 +12,7 @@
 
         mkdir -p model logs &&
         
-        ketos_exit_code=0
+        ketos_exit_code=0 &&
         
         ketos
             #if str($global_opts.config).strip() and str($global_opts.config) != 'None'
