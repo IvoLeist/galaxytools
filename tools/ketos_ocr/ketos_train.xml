@@ -213,6 +213,112 @@
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
+        <!-- Train a new compact VGSL model for one epoch. -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+                <param name="normalization" value="NFKC"/>
+                <param name="normalize_whitespace" value="false"/>
+                <conditional name="bidi_settings">
+                    <param name="reorder" value="yes"/>
+                    <param name="base_dir" value="R"/>
+                </conditional>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="training_data_split"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
+            <assert_command>
+                <has_text text="--arch 'vgsl'"/>
+                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'"/>
+                <has_text text="--quit 'fixed'"/>
+                <has_text text="--epochs '1'"/>
+                <not_has_text text="--optimizer"/>
+                <not_has_text text="--variant"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <!-- Replace the loaded codec and disable bidirectional reordering. -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="load"/>
+                    <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+                    <conditional name="resize_settings">
+                        <param name="resize" value="new"/>
+                    </conditional>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="infer"/>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+                <param name="normalization" value="NFKC"/>
+                <param name="normalize_whitespace" value="false"/>
+                <conditional name="bidi_settings">
+                    <param name="reorder" value="no"/>
+                </conditional>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="training_data_split"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
+            <assert_command>
+                <has_text text="--resize 'new'"/>
+                <has_text text="--normalization 'NFKC'"/>
+                <has_text text="--no-normalize-whitespace"/>
+                <has_text text="--no-reorder"/>
+                <not_has_text text="--base-dir"/>
+                <not_has_text text="--spec"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Loading from checkpoint"/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end.

@@ -422,7 +422,14 @@
                 <expand macro="stop_condition" early_selected="false" fixed_selected="true"/>
             </when>
             <when value="vgsl">
-                <param name="vgsl_spec" type="text" value="[1,48,0,1 Cr3,3,32 Do0.1,2 Mp2,2 Cr3,3,64 Do0.1,2 Mp2,2 S1(1x12)1,3 Lbx100 Do]" label="VGSL specification" help="VGSL model specification string"/>
+                <param name="vgsl_spec" type="text" optional="false" value="[1,48,0,1 Cr3,3,32 Do0.1,2 Mp2,2 Cr3,3,64 Do0.1,2 Mp2,2 S1(1x12)1,3 Lbx100 Do]" label="VGSL specification" help="VGSL model specification string">
+                    <sanitizer>
+                        <valid initial="default">
+                            <add value="["/>
+                            <add value="]"/>
+                        </valid>
+                    </sanitizer>
+                </param>
                 <param argument="--freeze-backbone" type="integer" min="0" value="0" label="Freeze backbone" help="Number of initial training iterations to keep all but the final layer frozen. Set to 0 to disable."/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
