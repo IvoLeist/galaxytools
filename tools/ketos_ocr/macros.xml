@@ -190,12 +190,15 @@
     </xml>
     <xml name="env_vars">
         <environment_variables>
-            <environment_variable name="TERM">dumb</environment_variable>
-            <environment_variable name="NO_COLOR">1</environment_variable>
-            <environment_variable name="TTY_COMPATIBLE">0</environment_variable>
+            <!-- setting columns is important otherwise the model-summary table in the StdOut will be quite narrow -->
+            <environment_variable name="COLUMNS">160</environment_variable>
             <environment_variable name="LANG">C.UTF-8</environment_variable>
             <environment_variable name="LC_ALL">C.UTF-8</environment_variable>
+            <environment_variable name="NO_COLOR">1</environment_variable>
             <environment_variable name="PYTHONIOENCODING">utf-8</environment_variable>
+            <environment_variable name="TERM">dumb</environment_variable>
+            <environment_variable name="TTY_COMPATIBLE">0</environment_variable>
+            <environment_variable name="TTY_INTERACTIVE">0</environment_variable>
         </environment_variables>
     </xml>
     <xml name="citations">
@@ -233,8 +236,8 @@
     </xml>
     <xml name="precision_mode">
         <param name="mode" type="select" label="Precision mode">
-            <option value="mixed" selected="true">Mixed</option>
-            <option value="true">True</option>
+            <option value="true" selected="true">True</option>
+            <option value="mixed" >Mixed</option>
         </param>
     </xml>
     <xml name="ketos_training_options">
@@ -242,10 +245,10 @@
             <param name="config" type="data" format="yaml" optional="true" label="Experiment YAML configuration" help="Optional ketos --config file. Command-line options selected below are still passed explicitly."/>
             <conditional name="precision">
                 <param name="dtype" type="select" label="Numerical precision">
-                    <option value="32" selected="true">32-bit floating point (FP32)</option>
-                    <option value="16">16-bit floating point (FP16)</option>
+                    <option value="32" selected="true">32-bit single-point precision</option>
+                    <option value="64">64-bit single-point precision</option>
+                    <option value="16">16-bit</option>
                     <option value="bf16">BFloat16 (BF16)</option>
-                    <option value="64">64-bit floating point (FP64)</option>
                     <!-- below only available when using a NVIDIA GPU -->
                     <!-- <option value="transformer-engine">Transformer Engine: FP8 mixed precision (BF16 weights)</option>
                     <option value="transformer-engine-float16">Transformer Engine: FP8 mixed precision (FP16 weights)</option> -->
@@ -335,7 +338,7 @@
         </conditional>
     </xml>
     <xml name="recognition_training_data_params">
-        <param argument="--normalization" type="select" label="Unicode normalization" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If unset, no Unicode normalization is applied.">
+        <param argument="--normalization" type="select" label="Normalize Unicode" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If false, no Unicode normalization is applied.">
             <option value="None" selected="true">false</option>
             <option value="NFD">NFD</option>
             <option value="NFKD">NFKD</option>
