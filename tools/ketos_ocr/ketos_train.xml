@@ -2,6 +2,7 @@
     <description>train or fine-tune recognition models</description>
     <macros>
         <import>macros.xml</import>
+        <import>macros_for_testing.xml</import>
     </macros>
     <expand macro="requirements"/>
     <expand macro="creators"/>
@@ -319,6 +320,165 @@
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
+        <!-- Direct non-binary training: each format with repeats and list:paired input.
+             Four line pairs ensure both training and validation have samples.
+             These success tests also guard the input staging/argument wiring. -->
+        <expand macro="train_nonbinary_test" format_type="alto">
+            <conditional name="input_source">
+                <param name="source" value="repeat"/>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="input_binarized.png" ftype="png"/>
+                    <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                </repeat>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="input_binarized.png" ftype="png"/>
+                    <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                </repeat>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="alto">
+            <conditional name="input_source">
+                <param name="source" value="collection"/>
+                <param name="ground_truth_collection">
+                    <collection type="list:paired">
+                        <element name="pair_001">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                            </collection>
+                        </element>
+                        <element name="pair_002">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                            </collection>
+                        </element>
+                    </collection>
+                </param>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="page">
+            <conditional name="input_source">
+                <param name="source" value="repeat"/>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="input_binarized.png" ftype="png"/>
+                    <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                </repeat>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="input_binarized.png" ftype="png"/>
+                    <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                </repeat>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="page">
+            <conditional name="input_source">
+                <param name="source" value="collection"/>
+                <param name="ground_truth_collection">
+                    <collection type="list:paired">
+                        <element name="pair_001">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                            </collection>
+                        </element>
+                        <element name="pair_002">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                            </collection>
+                        </element>
+                    </collection>
+                </param>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="xml">
+            <conditional name="input_source">
+                <param name="source" value="repeat"/>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="input_binarized.png" ftype="png"/>
+                    <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                </repeat>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="input_binarized.png" ftype="png"/>
+                    <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                </repeat>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="xml">
+            <conditional name="input_source">
+                <param name="source" value="collection"/>
+                <param name="ground_truth_collection">
+                    <collection type="list:paired">
+                        <element name="pair_001">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                            </collection>
+                        </element>
+                        <element name="pair_002">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                            </collection>
+                        </element>
+                    </collection>
+                </param>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="path">
+            <conditional name="input_source">
+                <param name="source" value="repeat"/>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="compile_input_line.png" ftype="png"/>
+                    <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                </repeat>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="compile_input_line.png" ftype="png"/>
+                    <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                </repeat>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="compile_input_line.png" ftype="png"/>
+                    <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                </repeat>
+                <repeat name="ground_truth_pairs">
+                    <param name="image" value="compile_input_line.png" ftype="png"/>
+                    <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                </repeat>
+            </conditional>
+        </expand>
+        <expand macro="train_nonbinary_test" format_type="path">
+            <conditional name="input_source">
+                <param name="source" value="collection"/>
+                <param name="ground_truth_collection">
+                    <collection type="list:paired">
+                        <element name="pair_001">
+                            <collection type="paired">
+                                <element name="forward" value="compile_input_line.png" ftype="png"/>
+                                <element name="reverse" value="compile_input_line.gt.txt" ftype="txt"/>
+                            </collection>
+                        </element>
+                        <element name="pair_002">
+                            <collection type="paired">
+                                <element name="forward" value="compile_input_line.png" ftype="png"/>
+                                <element name="reverse" value="compile_input_line.gt.txt" ftype="txt"/>
+                            </collection>
+                        </element>
+                        <element name="pair_003">
+                            <collection type="paired">
+                                <element name="forward" value="compile_input_line.png" ftype="png"/>
+                                <element name="reverse" value="compile_input_line.gt.txt" ftype="txt"/>
+                            </collection>
+                        </element>
+                        <element name="pair_004">
+                            <collection type="paired">
+                                <element name="forward" value="compile_input_line.png" ftype="png"/>
+                                <element name="reverse" value="compile_input_line.gt.txt" ftype="txt"/>
+                            </collection>
+                        </element>
+                    </collection>
+                </param>
+            </conditional>
+        </expand>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end.
