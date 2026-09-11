@@ -37,3 +37,30 @@ the first and last two records, respectively, of `ketos_train_recognition.arrow`
 Their metadata record counts are updated to two. These fixtures exercise explicit
 validation with one or multiple files. They overlap the training fixture because
 these are workflow smoke tests, not model-quality evaluations.
+
+`ketos_train_resume.ckpt` is a full Kraken 7.1 / PyTorch Lightning 2.6.1
+checkpoint after one epoch (epoch 0, global step 3), including optimizer and
+training-loop state. It uses the same compact VGSL specification above and four
+copies of `compile_input_line.png` / `compile_input_line.gt.txt`. The resume test
+runs to a total of two epochs and checks that an epoch-1 checkpoint is exported.
+
+To regenerate it, stage those four pairs in a temporary working directory as
+`ground_truth_0.png` / `ground_truth_0.gt.txt` through
+`ground_truth_3.png` / `ground_truth_3.gt.txt`, then run:
+
+```sh
+ketos --device cpu --workers 0 --threads 1 --deterministic --seed 42 train \
+    --output model --weights-format safetensors --format-type path \
+    --arch vgsl --spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]' \
+    --quit fixed --epochs 1 --freq 1 --no-augment --partition 0.75 \
+    ground_truth_0.png ground_truth_1.png ground_truth_2.png ground_truth_3.png
+```
+
+Copy the resulting `model/checkpoint_00-*.ckpt` to `ketos_train_resume.ckpt`.
+The relative input names intentionally match the wrapper's staging names:
+Kraken restores the checkpoint's data configuration when resuming, so absolute
+paths or paths into `test-data` would not work in a Galaxy job directory.
+
+The checkpoint input uses `ftype="zip"` (a binary subtype) because PyTorch
+checkpoints are ZIP containers. This keeps Galaxy from decompressing the upload:
+Kraken needs the container intact to memory-map and restore it.
