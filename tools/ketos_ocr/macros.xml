@@ -22,9 +22,17 @@
             ln -s '$train_opts.initialization.model' initial_model.ckpt &&
         #end if
     ]]></token>
+    <token name="@RECOGNITION_WEIGHTS_FORMAT@"><![CDATA[
+        #if $train_opts.arch.recognition_arch == 'vgsl'
+            #set $weights_format = $train_opts.arch.weights_format
+        #else
+            #set $weights_format = 'safetensors'
+        #end if
+    ]]></token>
     <token name="@RECOGNITION_TRAINING_ARGS@"><![CDATA[
+        @RECOGNITION_WEIGHTS_FORMAT@
         --output model
-        --weights-format safetensors
+        --weights-format '$weights_format'
         #if $train_opts.initialization.source == 'load'
             #if $train_opts.initialization.model_type == 'checkpoint'
                 --load 'initial_model.ckpt'
@@ -100,7 +108,8 @@
     ]]></token>
     <token name="@TRAINING_ARGS@"><![CDATA[
         --output model
-        --weights-format safetensors
+        #set $weights_format = 'safetensors'
+        --weights-format '$weights_format'
         #if str($train_opts.batch_size).strip() and str($train_opts.batch_size) != 'None'
             --batch-size '$train_opts.batch_size'
         #end if
@@ -181,7 +190,12 @@
         #end for
     ]]></token>
     <token name="@CAPTURE_TRAINING_OUTPUTS@"><![CDATA[
-        best_model=\$(find model -maxdepth 1 -type f -name 'best_*.safetensors' | head -n 1);
+        #if $weights_format == 'coreml'
+            #set $weights_extension = 'mlmodel'
+        #else
+            #set $weights_extension = 'safetensors'
+        #end if
+        best_model=\$(find model -maxdepth 1 -type f -name 'best_*.${weights_extension}' | head -n 1);
         if [ -n "\$best_model" ]; then
             cp "\$best_model" best_model.weights;
         fi
@@ -378,7 +392,7 @@
     </xml>
     <xml name="arch_specific_defaults">
         <conditional name="arch">
-            <param name="recognition_arch" type="select" label="Recognition architecture" help="Compared with VGSL models, PP-OCRv6 models offer faster recognition and generally produce better results, particularly on large-scale datasets">
+            <param name="recognition_arch" type="select" label="Recognition architecture" help="Compared with VGSL models, PP-OCRv6 models offer faster recognition and generally produce better results, particularly on large-scale datasets. VGSL can export Safetensors or Core ML weights; PP-OCRv6 exports Safetensors. Inferred architectures use Safetensors, which supports both model types.">
                 <option value="infer">Infer when fine-tuning or resuming training</option>
                 <option value="ppocrv6" selected="true">PP-OCRv6</option>
                 <option value="vgsl">VGSL</option>
@@ -435,6 +449,10 @@
                 <expand macro="stop_condition" early_selected="false" fixed_selected="true"/>
             </when>
             <when value="vgsl">
+                <param argument="--weights-format" type="select" label="Output weights format">
+                    <option value="safetensors" selected="true">Safetensors</option>
+                    <option value="coreml">Core ML</option>
+                </param>
                 <param name="vgsl_spec" type="text" optional="false" value="[1,48,0,1 Cr3,3,32 Do0.1,2 Mp2,2 Cr3,3,64 Do0.1,2 Mp2,2 S1(1x12)1,3 Lbx100 Do]" label="VGSL specification" help="VGSL model specification string">
                     <sanitizer>
                         <valid initial="default">

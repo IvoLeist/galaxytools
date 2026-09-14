@@ -115,6 +115,7 @@
             <assert_command>
                 <has_text text="--format-type '@FORMAT_TYPE@'"/>
                 <has_text text="--arch 'vgsl'"/>
+                <has_text text="--weights-format 'safetensors'"/>
                 <has_text text="--epochs '1'"/>
             </assert_command>
             <output name="best_model" ftype="binary">

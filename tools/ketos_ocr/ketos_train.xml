@@ -132,7 +132,7 @@
         <conditional name="training_data">
             <param argument="--format-type" type="select" label="Training data format">
                 <option value="binary" selected="true">Compiled binary dataset</option>
-                <option value="alto" selected="true">ALTO</option>
+                <option value="alto">ALTO</option>
                 <option value="page">PAGE XML</option>
                 <option value="xml">XML</option>
                 <option value="path">Line image/transcription pairs</option>
@@ -199,6 +199,7 @@
             <assert_command>
                 <has_text text="--batch-size '1'"/>
                 <has_text text="--variant 'tiny'"/>
+                <has_text text="--weights-format 'safetensors'"/>
                 <has_text text="--epochs '1'"/>
             </assert_command>
             <output name="best_model" ftype="binary">
@@ -210,6 +211,51 @@
                 <assert_contents>
                     <has_text text="Initializing new model."/>
                     <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <!-- Export and collect Core ML weights from a small VGSL model. -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="weights_format" value="coreml"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="training_data_split"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
+            <assert_command>
+                <has_text text="--weights-format 'coreml'"/>
+                <has_text text="--arch 'vgsl'"/>
+                <has_text text="--epochs '1'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
+                    <has_text text=".mlmodel"/>
                 </assert_contents>
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
