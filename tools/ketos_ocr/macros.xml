@@ -17,11 +17,20 @@
         } &&
     #end if
     ]]></token>
+    <token name="@STAGE_INITIAL_MODEL@"><![CDATA[
+        #if $train_opts.initialization.source == 'load' and $train_opts.initialization.model_type == 'checkpoint'
+            ln -s '$train_opts.initialization.model' initial_model.ckpt &&
+        #end if
+    ]]></token>
     <token name="@RECOGNITION_TRAINING_ARGS@"><![CDATA[
         --output model
         --weights-format safetensors
         #if $train_opts.initialization.source == 'load'
-            --load '$train_opts.initialization.model'
+            #if $train_opts.initialization.model_type == 'checkpoint'
+                --load 'initial_model.ckpt'
+            #else
+                --load '$train_opts.initialization.model'
+            #end if
             --resize '$train_opts.initialization.resize_settings.resize'
             #if $train_opts.initialization.resize_settings.resize == 'new' and $train_opts.initialization.resize_settings.codec
                 --codec '$train_opts.initialization.resize_settings.codec'
@@ -96,7 +105,11 @@
             --batch-size '$train_opts.batch_size'
         #end if
         #if $train_opts.initialization.source == 'load'
-            --load '$train_opts.initialization.model'
+            #if $train_opts.initialization.model_type == 'checkpoint'
+                --load 'initial_model.ckpt'
+            #else
+                --load '$train_opts.initialization.model'
+            #end if
         #elif $train_opts.initialization.source == 'resume'
             --resume '$train_opts.initialization.checkpoint'
         #end if
@@ -450,6 +463,10 @@
                     <param argument="--codec" type="data" format="json" optional="true" label="Codec definition" help="Optional custom Kraken codec JSON definition. If omitted, the codec is inferred from the training data."/>
                 </when>
                 <when value="load">
+                    <param name="model_type" type="select" label="Model file type" help="Choose checkpoint for a full training checkpoint (.ckpt), or weights for an exported model. Both start a fresh training run. To continue an interrupted run, choose 'Resume a checkpointed run'.">
+                        <option value="weights" selected="true">Weights</option>
+                        <option value="checkpoint">Checkpoint (.ckpt)</option>
+                    </param>
                     <param name="model" type="data" format="binary,safetensors" label="Existing model or checkpoint"/>
                     <conditional name="resize_settings">
                         <param argument="--resize" type="select" label="Codec/output layer resizing" help="Controls how differences between the loaded model's codec and the training data are handled.">

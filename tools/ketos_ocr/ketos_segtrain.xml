@@ -6,6 +6,7 @@
     <expand macro="requirements"/>
     <expand macro="creators"/>
     <command detect_errors="exit_code"><![CDATA[
+        @STAGE_INITIAL_MODEL@
         mkdir -p model logs &&
         ketos
             @GLOBAL_ARGS@

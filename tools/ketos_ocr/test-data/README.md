@@ -45,6 +45,10 @@ training-loop state. It uses the same compact VGSL specification above and four
 copies of `compile_input_line.png` / `compile_input_line.gt.txt`. The resume test
 runs to a total of two epochs and checks that an epoch-1 checkpoint is exported.
 
+The fresh-run checkpoint test also loads this fixture through `--load`, stages it
+with a `.ckpt` suffix, and checks that training restarts at epoch 0 rather than
+restoring the training-loop state.
+
 To regenerate it, stage those four pairs in a temporary working directory as
 `ground_truth_0.png` / `ground_truth_0.gt.txt` through
 `ground_truth_3.png` / `ground_truth_3.gt.txt`, then run:

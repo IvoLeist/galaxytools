@@ -42,6 +42,7 @@
             #end for
         #end if
 
+        @STAGE_INITIAL_MODEL@
         mkdir -p model logs &&
         
         ketos_exit_code=0 &&
@@ -247,6 +248,11 @@
                 <param name="validation_source" value="training_data_split"/>
                 <param name="partition" value="0.75"/>
             </conditional>
+            <assert_command>
+                <has_text text="--load '"/>
+                <not_has_text text="initial_model.ckpt"/>
+                <not_has_text text="--resume"/>
+            </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
                     <has_size min="10000"/>
@@ -322,6 +328,79 @@
                     <has_text text="max_epochs=2"/>
                     <has_text text="Converting best model"/>
                     <has_text text="checkpoint_01-"/>
+                    <not_has_text text="Initializing new model."/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <!-- A Galaxy .dat checkpoint must be staged as .ckpt for fresh-run loading, starting again at epoch 0. -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="path"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="compile_input_line.png" ftype="png"/>
+                        <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="compile_input_line.png" ftype="png"/>
+                        <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="compile_input_line.png" ftype="png"/>
+                        <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="compile_input_line.png" ftype="png"/>
+                        <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="load"/>
+                    <param name="model_type" value="checkpoint"/>
+                    <!-- PyTorch checkpoints are ZIP containers; preserve them on upload. -->
+                    <param name="model" value="ketos_train_resume.ckpt" ftype="zip"/>
+                    <conditional name="resize_settings">
+                        <param name="resize" value="fail"/>
+                    </conditional>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="training_data_split"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
+            <assert_command>
+                <has_text text="ln -s '"/>
+                <has_text text="initial_model.ckpt &amp;&amp;"/>
+                <has_text text="--load 'initial_model.ckpt'"/>
+                <has_text text="--epochs '1'"/>
+                <not_has_text text="--resume"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Loading from checkpoint initial_model.ckpt"/>
+                    <not_has_text text="Restored all states from the checkpoint"/>
+                    <has_text text="max_epochs=1"/>
+                    <has_text text="Converting best model"/>
+                    <has_text text="checkpoint_00-"/>
                     <not_has_text text="Initializing new model."/>
                 </assert_contents>
             </output>
