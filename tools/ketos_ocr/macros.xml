@@ -254,6 +254,7 @@
                     <param name="ground_truth_collection" type="data_collection" collection_type="list:paired" format="jpg,png,tiff,@ANNOTATION_FORMAT@" label="@PAIR_LABEL@ pairs" help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription."/>
                 </when>
             </conditional>
+            <yield/>
         </when>
     </xml>
     <xml name="compile_training_data_inputs">
@@ -363,6 +364,13 @@
             </when>
             <when value="constant"/>
         </conditional>
+    </xml>
+    <xml name="training_linetype" token_auto="false" token_baselines="false" token_bbox="false">
+        <param argument="--linetype" type="select" label="Training data line type" help="Force the line type of the training data. Automatic detection uses baselines for XML data, bounding boxes for path data, and the recorded type for binary datasets.">
+            <option value="auto" selected="@AUTO@">Detect automatically</option>
+            <option value="baselines" selected="@BASELINES@">Baselines</option>
+            <option value="bbox" selected="@BBOX@">Bounding boxes</option>
+        </param>
     </xml>
     <xml name="recognition_training_data_params">
         <param argument="--normalization" type="select" label="Normalize Unicode" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If false, no Unicode normalization is applied.">

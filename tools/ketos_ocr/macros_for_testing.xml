@@ -87,7 +87,7 @@
         </test>
     </xml>
     <!-- Success contract for direct recognition training from paired inputs. -->
-    <xml name="train_nonbinary_test" tokens="format_type">
+    <xml name="train_nonbinary_test" tokens="format_type" token_linetype="baselines">
         <test expect_num_outputs="3">
             <conditional name="training_data">
                 <param name="format_type" value="@FORMAT_TYPE@"/>
@@ -114,6 +114,7 @@
             </conditional>
             <assert_command>
                 <has_text text="--format-type '@FORMAT_TYPE@'"/>
+                <has_text text="--linetype '@LINETYPE@'"/>
                 <has_text text="--arch 'vgsl'"/>
                 <has_text text="--weights-format 'safetensors'"/>
                 <has_text text="--epochs '1'"/>

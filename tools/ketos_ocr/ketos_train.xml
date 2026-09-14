@@ -68,6 +68,9 @@
             #end if
             train
             @RECOGNITION_TRAINING_ARGS@
+            #if $training_data.linetype in ('baselines', 'bbox')
+                --linetype '$training_data.linetype'
+            #end if
             #if str($training_data.format_type).strip() and str($training_data.format_type) != 'None'
                 --format-type '$training_data.format_type'
             #end if
@@ -139,11 +142,20 @@
             </param>
             <when value="binary">
                 <param name="ground_truth" type="data" multiple="true" format="arrow" label="Ground-truth data"/>
+                <expand macro="training_linetype" auto="true"/>
             </when>
-            <expand macro="compile_training_data_input" format_type="alto" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation"/>
-            <expand macro="compile_training_data_input" format_type="page" pair_label="page image/PAGE XML" annotation_format="page.xml" annotation_label="PAGE XML annotation"/>
-            <expand macro="compile_training_data_input" format_type="xml" pair_label="page image/XML" annotation_format="xml" annotation_label="XML annotation"/>
-            <expand macro="compile_training_data_input" format_type="path" pair_label="line image/transcription" annotation_format="txt" annotation_label="Ground-truth transcription"/>
+            <expand macro="compile_training_data_input" format_type="alto" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation">
+                <expand macro="training_linetype" baselines="true"/>
+            </expand>
+            <expand macro="compile_training_data_input" format_type="page" pair_label="page image/PAGE XML" annotation_format="page.xml" annotation_label="PAGE XML annotation">
+                <expand macro="training_linetype" baselines="true"/>
+            </expand>
+            <expand macro="compile_training_data_input" format_type="xml" pair_label="page image/XML" annotation_format="xml" annotation_label="XML annotation">
+                <expand macro="training_linetype" baselines="true"/>
+            </expand>
+            <expand macro="compile_training_data_input" format_type="path" pair_label="line image/transcription" annotation_format="txt" annotation_label="Ground-truth transcription">
+                <expand macro="training_linetype" bbox="true"/>
+            </expand>
         </conditional>
         <expand macro="ketos_training_options"/>
         <expand macro="training_inputs"/>
@@ -197,6 +209,7 @@
                 <param name="partition" value="0.75"/>
             </conditional>
             <assert_command>
+                <not_has_text text="--linetype"/>
                 <has_text text="--batch-size '1'"/>
                 <has_text text="--variant 'tiny'"/>
                 <has_text text="--weights-format 'safetensors'"/>
@@ -667,7 +680,7 @@
                 </param>
             </conditional>
         </expand>
-        <expand macro="train_nonbinary_test" format_type="path">
+        <expand macro="train_nonbinary_test" format_type="path" linetype="bbox">
             <conditional name="input_source">
                 <param name="source" value="repeat"/>
                 <repeat name="ground_truth_pairs">
@@ -688,7 +701,7 @@
                 </repeat>
             </conditional>
         </expand>
-        <expand macro="train_nonbinary_test" format_type="path">
+        <expand macro="train_nonbinary_test" format_type="path" linetype="bbox">
             <conditional name="input_source">
                 <param name="source" value="collection"/>
                 <param name="ground_truth_collection">
