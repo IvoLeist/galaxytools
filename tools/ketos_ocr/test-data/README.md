@@ -35,7 +35,8 @@ testing the training workflow, not for producing an accurate OCR model.
 `ketos_train_validation_1.arrow` and `ketos_train_validation_2.arrow` contain
 the first and last two records, respectively, of `ketos_train_recognition.arrow`.
 Their metadata record counts are updated to two. These fixtures exercise explicit
-validation with one or multiple files. They overlap the training fixture because
+validation with one or multiple files, and are also reused as two distinct training
+inputs with split or explicit validation. They overlap the training fixture because
 these are workflow smoke tests, not model-quality evaluations.
 
 `ketos_train_resume.ckpt` is a full Kraken 7.1 / PyTorch Lightning 2.6.1
@@ -64,3 +65,9 @@ paths or paths into `test-data` would not work in a Galaxy job directory.
 The checkpoint input uses `ftype="zip"` (a binary subtype) because PyTorch
 checkpoints are ZIP containers. This keeps Galaxy from decompressing the upload:
 Kraken needs the container intact to memory-map and restore it.
+
+`ketos_train_codec.json` is the character-to-label mapping from
+`ketos_train_model.safetensors`, with an extra `~` character assigned label 36.
+Label 0 is reserved for CTC blank. The extra character makes this codec differ
+from the inferred training alphabet and the loaded model codec. It exercises
+explicit JSON codecs for new VGSL training and loading with `resize=new`.

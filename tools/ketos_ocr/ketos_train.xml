@@ -327,7 +327,7 @@
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
-        <!-- Train a new compact VGSL model for one epoch. -->
+        <!-- Train a new compact VGSL model with an explicit JSON codec for one epoch. -->
         <test expect_num_outputs="3">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
@@ -336,6 +336,7 @@
             <section name="train_opts">
                 <conditional name="initialization">
                     <param name="source" value="new"/>
+                    <param name="codec" value="ketos_train_codec.json" ftype="json"/>
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="vgsl"/>
@@ -359,6 +360,7 @@
                 <param name="partition" value="0.75"/>
             </conditional>
             <assert_command>
+                <has_text text="--codec &apos;"/>
                 <has_text text="--arch 'vgsl'"/>
                 <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'"/>
                 <has_text text="--quit 'fixed'"/>
@@ -379,7 +381,7 @@
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
-        <!-- Replace the loaded codec and disable bidirectional reordering. -->
+        <!-- Replace the loaded codec with an explicit JSON codec and disable bidirectional reordering. -->
         <test expect_num_outputs="3">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
@@ -391,6 +393,7 @@
                     <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
                     <conditional name="resize_settings">
                         <param name="resize" value="new"/>
+                        <param name="codec" value="ketos_train_codec.json" ftype="json"/>
                     </conditional>
                 </conditional>
                 <conditional name="arch">
@@ -413,6 +416,7 @@
                 <param name="partition" value="0.75"/>
             </conditional>
             <assert_command>
+                <has_text text="--codec &apos;"/>
                 <has_text text="--resize 'new'"/>
                 <has_text text="--normalization 'NFKC'"/>
                 <has_text text="--no-normalize-whitespace"/>
@@ -699,6 +703,54 @@
                 </assert_contents>
             </output>
             <output_collection name="checkpoints" type="list" count="1" />
+        </test>
+        <!-- Train from two Arrow inputs with a training/validation split. -->
+        <test expect_num_outputs="3">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow"/>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+                <conditional name="bidi_settings">
+                    <param name="reorder" value="no"/>
+                </conditional>
+            </section>
+            <conditional name="validation">
+                <param name="validation_source" value="training_data_split"/>
+                <param name="partition" value="0.75"/>
+            </conditional>
+            <assert_command>
+                <has_text text="--format-type 'binary'"/>
+                <!-- Both datasets must be separate positional arguments, even after Galaxy renames them. -->
+                <has_text_matching expression="--no-reorder\s+'[^']+'\s+'[^']+'\s+&gt; training_report.txt"/>
+                <has_text text="--partition '0.75'"/>
+                <not_has_text text="--evaluation-data"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Invalid weights must fail even though the report is captured and printed. -->
         <test expect_failure="true" expect_exit_code="1">
