@@ -70,6 +70,57 @@ The checkpoint input uses `ftype="zip"` (a binary subtype) because PyTorch
 checkpoints are ZIP containers. This keeps Galaxy from decompressing the upload:
 Kraken needs the container intact to memory-map and restore it.
 
+`ketos_train_resume_missing_data.ckpt` is derived from the resume fixture above,
+with only its saved data configuration changed to use a missing compiled Arrow
+dataset. The negative resume test supplies a valid binary dataset but expects the
+saved path to be used, the file-opening warning to be printed, and the job to fail
+with no training data. To regenerate this fixture in the Kraken environment:
+
+```python
+import torch
+
+checkpoint = torch.load("test-data/ketos_train_resume.ckpt",
+                        map_location="cpu", weights_only=False)
+config = checkpoint["datamodule_hyper_parameters"]["data_config"]
+config.format_type = "binary"
+config.training_data = ["missing_resume_data/training.arrow"]
+config.evaluation_data = []
+config.test_data = []
+torch.save(checkpoint, "test-data/ketos_train_resume_missing_data.ckpt")
+```
+
+`ketos_train_binary_resume.ckpt` is a one-epoch checkpoint from the compact VGSL
+model trained on both validation Arrow fixtures, also used as explicit validation
+inputs. Its saved paths are `training_0.arrow`, `training_1.arrow`,
+`validation_0.arrow`, and `validation_1.arrow`. The binary resume Galaxy test
+recreates those names and checks that training continues into epoch 1.
+
+To regenerate it, stage the two validation Arrow fixtures under both pairs of
+names in a temporary directory, write `validation_0.arrow` and
+`validation_1.arrow` on separate lines in `evaluation_manifest.txt`, and run:
+
+```sh
+ketos --device cpu --workers 0 --threads 1 train \
+    --output model --weights-format safetensors --format-type binary \
+    --arch vgsl --spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]' --batch-size 1 \
+    --quit fixed --epochs 1 --freq 1 --no-augment \
+    --evaluation-data evaluation_manifest.txt training_0.arrow training_1.arrow
+```
+
+Copy `model/checkpoint_00-*.ckpt` to `test-data/ketos_train_binary_resume.ckpt`.
+The separate `tests/test_binary_resume.py` integration test generates fresh
+checkpoints, removes the original job and its `.dat` inputs, and resumes using
+new input paths. It covers both split and explicit validation with multiple
+datasets. Run it with Galaxy's Python dependencies and Cheetah3 installed:
+
+```sh
+KETOS_TEST_EXECUTABLE=/path/to/kraken-environment/bin/ketos \
+    python -m unittest discover -s tests -v
+```
+
+The Kraken environment must also contain TensorBoard. Without
+`KETOS_TEST_EXECUTABLE`, only the form and command-rendering checks run.
+
 `ketos_train_codec.json` is the character-to-label mapping from
 `ketos_train_model.safetensors`, with an extra `~` character assigned label 36.
 Label 0 is reserved for CTC blank. The extra character makes this codec differ

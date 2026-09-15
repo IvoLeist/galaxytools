@@ -678,7 +678,7 @@
                     </conditional>
                 </when>
                 <when value="resume">
-                    <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume" help="Before resuming, check that all training parameters match the run that produced this checkpoint, except settings you intentionally want to change. The form does not populate values from the checkpoint, and form defaults can override saved settings. Kraken reuses the checkpoint's data configuration and saved dataset paths; selecting data here does not replace them."/>
+                    <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume" help="Before resuming, check that all training parameters match the run that produced this checkpoint, except settings you intentionally want to change. The form does not populate values from the checkpoint, and form defaults can override saved settings."/>
                 </when>
             </conditional>
             <expand macro="arch_specific_defaults"/>

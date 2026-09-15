@@ -11,7 +11,16 @@
         KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
         KETOS_THREADS="\${KETOS_THREADS:-1}" &&
 
-        #if $training_data.format_type != 'binary'
+        #if $training_data.format_type == 'binary'
+            #for $i, $dataset in enumerate($training_data.ground_truth)
+                ln -s '$dataset' 'training_${i}.arrow' &&
+            #end for
+            #if $training_data.validation.validation_source == 'explicit'
+                #for $i, $dataset in enumerate($training_data.validation.evaluation_data)
+                    ln -s '$dataset' 'validation_${i}.arrow' &&
+                #end for
+            #end if
+        #else
             #set $input_source = $training_data.input_source
 
             #if $input_source.source == 'repeat'
@@ -126,7 +135,9 @@
                 --legacy-polygons
             #end if
             #if $training_data.format_type == 'binary'
-                @GROUND_TRUTH_ARGS@
+                #for $i, $dataset in enumerate($training_data.ground_truth)
+                    'training_${i}.arrow'
+                #end for
             #else
                 #for $i, $pair in enumerate($pairs)
                     #if $training_data.format_type == 'path'
@@ -153,8 +164,8 @@
         <configfile name="evaluation_manifest"><![CDATA[
 #if $training_data.validation.validation_source == 'explicit'
 #if $training_data.format_type == 'binary'
-#for $dataset in $training_data.validation.evaluation_data
-${dataset}
+#for $i, $dataset in enumerate($training_data.validation.evaluation_data)
+validation_${i}.arrow
 #end for
 #else
 #set $source = $training_data.validation.input_source
@@ -527,6 +538,48 @@ validation_${i}/annotation.xml
                 </assert_contents>
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <!-- Old checkpoints with missing saved paths still fail despite staged binary inputs. -->
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="resume"/>
+                    <param name="checkpoint" value="ketos_train_resume_missing_data.ckpt" ftype="zip"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="infer"/>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="2"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
+                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="--resume '"/>
+                <has_text text="--format-type 'binary'"/>
+            </assert_command>
+            <!-- The wrapper prints the captured report to stdout before propagating failure. -->
+            <assert_stdout>
+                <has_text text="Failed to open local file"/>
+                <has_text text="missing_resume_data/training.arrow"/>
+                <has_text text="[errno 2]"/>
+                <has_text text="No training data in dataset. Please supply some."/>
+                <not_has_text text="Converting best model"/>
+            </assert_stdout>
         </test>
         <!-- A Galaxy .dat checkpoint must be staged as .ckpt for fresh-run loading, starting again at epoch 0. -->
         <test expect_num_outputs="4">
@@ -1756,6 +1809,61 @@ validation_${i}/annotation.xml
                 </element>
             </output_collection>
         </test>
+        <!-- Resume binary training with multiple staged training and validation datasets. -->
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="explicit"/>
+                    <param name="evaluation_data" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="resume"/>
+                    <param name="checkpoint" value="ketos_train_binary_resume.ckpt" ftype="zip"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="infer"/>
+                    <param name="batch_size" value="1"/>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="2"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
+                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="--resume '"/>
+                <has_text text="'training_0.arrow'" n="2"/>
+                <has_text text="'training_1.arrow'" n="2"/>
+                <has_text text="'validation_0.arrow'"/>
+                <has_text text="'validation_1.arrow'"/>
+                <has_text text="--evaluation-data '"/>
+                <not_has_text text="--partition"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Restored all states from the checkpoint"/>
+                    <has_text text="max_epochs=2"/>
+                    <has_text text="checkpoint_01-"/>
+                    <not_has_text text="Failed to open local file"/>
+                    <not_has_text text="Initializing new model."/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
@@ -1764,7 +1872,9 @@ Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training d
 
 Before selecting **Resume a checkpointed run**, check that all training parameters match the settings used to produce the checkpoint, except those you intentionally want to change. The form does not read its values from the checkpoint. It still supplies settings such as stopping rules, validation frequency, and gradient settings, so leaving the form defaults unchanged can alter the resumed run. Refer to the original job's parameters when configuring resume. For a fixed epoch count, the limit is the total number of epochs, including those already completed, rather than the number of additional epochs to run.
 
-Kraken restores the checkpoint's data configuration, including dataset paths, instead of using newly supplied data settings. Keep the original data available at the paths recorded in the checkpoint; selecting the same datasets in this form does not repair changed or missing paths. In particular, checkpoints produced from compiled binary datasets depend on their original dataset paths. Matching the training parameters alone does not resolve this path requirement.
+Ketos restores the checkpoint's data configuration instead of using newly supplied data settings. For compiled binary inputs, this tool stages training datasets as `training_0.arrow`, `training_1.arrow`, and so on, and explicit validation datasets as `validation_0.arrow`, `validation_1.arrow`, and so on. New checkpoints record these relative paths, which the tool recreates in a later job even when Galaxy stores the uploaded files at different paths.
+
+To resume, select the same training and validation datasets in the same order and keep the same validation mode. The tool does not check that their contents match the original inputs. For image/XML inputs, also preserve the input order and image extensions. Checkpoints produced before binary input staging was added, or outside this tool, may contain other paths. Uploading the same files again does not repair those checkpoints; their saved paths must still be accessible, or you can load the checkpoint for a fresh run instead.
     </help>
     <expand macro="citations"/>
 </tool>
