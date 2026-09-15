@@ -1835,15 +1835,86 @@ validation_${i}/annotation.xml
         </test>
     </tests>
     <help format="markdown">
-Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
+### What this tool does
+
+Ketos Train trains or fine-tunes a Kraken text recognition model using images and
+known transcriptions (ground truth). During training, it evaluates the model on
+validation data, saves checkpoints, and exports the best checkpoint as a weights
+file at the end.
+
+### Quick start
+
+1. Select the **Ground-truth data format** and supply the matching datasets described below.
+2. Choose a **Validation data source**. The default split uses 90% of the samples for training and the remaining 10% for validation. Alternatively, supply separate validation data in the same format as the training data.
+3. Under **Initialization**, choose whether to train a new model, fine-tune an existing model, or resume a checkpoint.
+4. Select the **Recognition architecture** and review the training options. When loading or resuming a model, select **Infer when fine-tuning or resuming training** to use its architecture.
+5. Run the tool. Use the **best model** output for recognition, and keep the **checkpoints** if you want to resume training later.
+
+### Preparing input data
+
+- **Compiled binary dataset**: one or more Arrow datasets, such as those produced by Ketos Compile.
+- **ALTO**, **PAGE XML**, or **XML**: page images paired with their corresponding ground-truth annotations. Select the format that matches your annotations.
+- **Line image/transcription pairs**: images of individual text lines paired with plain-text files containing the corresponding transcriptions.
+
+For image-based inputs, select individual pairs or a Galaxy `list:paired`
+collection. Each collection pair must have the image as its `forward` element and
+the annotation or transcription as its `reverse` element. Supported image formats
+are JPEG, PNG, and single-page TIFF. Split multi-page TIFF files into individual
+page images before using them.
+
+For XML inputs, the tool updates the annotation's image reference to point to the
+paired image. Supply the correct image for each annotation. Choose the
+**Training data line type** to match your data; compiled datasets also support
+automatic detection from their recorded line type.
+
+Validation data is used to monitor training and select the best checkpoint.
+When providing explicit validation data, use samples separate from the training
+samples so that validation measures recognition on unseen examples.
+
+### Starting a new run or fine-tuning
+
+- **Train a new model** initializes a new recognition model. The character encoding (codec) is inferred from the training data unless you supply a custom codec definition.
+- **Load existing weights/checkpoint for a fresh run** starts a new training run from an existing model. Make sure the when selecting the model's architecture that it matches the one used to produce the weights/the checkpoint. 
+
+When fine-tuning, **Codec/output layer resizing** controls how character
+mismatches are handled. **Fail on mismatch** rejects a mismatch; **Add new
+characters** extends the loaded codec; **Replace codec with training codec**
+replaces it with the training codec or the custom codec you provide.
 
 ### Resuming a checkpointed run
 
-Before selecting **Resume a checkpointed run**, check that all training parameters match the settings used to produce the checkpoint, except those you intentionally want to change. The form does not read its values from the checkpoint. It still supplies settings such as stopping rules, validation frequency, and gradient settings, so leaving the form defaults unchanged can alter the resumed run. Refer to the original job's parameters when configuring resume. For a fixed epoch count, the limit is the total number of epochs, including those already completed, rather than the number of additional epochs to run.
+1. Select **Resume a checkpointed run** and a full training checkpoint from the **checkpoints** collection.
+2. Select the same training and validation datasets in the same order, and keep the same validation mode. For image-based inputs, also preserve the image extensions.
+3. Refer to the original Galaxy job's parameters and match its training settings, except those you intentionally want to change. **The form does not populate its values from the checkpoint.** It still supplies stopping rules, validation frequency, gradient settings, and other options, so unchanged form defaults can alter a resumed run.
+4. If using a fixed epoch count, set the total number of epochs, including those already completed. For example, to add 5 epochs after completing 10, set **Epochs** to 15.
 
-Ketos restores the checkpoint's data configuration instead of using newly supplied data settings. For compiled binary inputs, this tool stages training datasets as `training_0.arrow`, `training_1.arrow`, and so on, and explicit validation datasets as `validation_0.arrow`, `validation_1.arrow`, and so on. New checkpoints record these relative paths, which the tool recreates in a later job even when Galaxy stores the uploaded files at different paths.
+Ketos restores the checkpoint's data configuration instead of using newly supplied
+data settings. The tool does not check that the selected datasets have the same
+contents as the original inputs.
 
-To resume, select the same training and validation datasets in the same order and keep the same validation mode. The tool does not check that their contents match the original inputs. For image/XML inputs, also preserve the input order and image extensions. Checkpoints produced before binary input staging was added, or outside this tool, may contain other paths. Uploading the same files again does not repair those checkpoints; their saved paths must still be accessible, or you can load the checkpoint for a fresh run instead.
+Checkpoint outside of this galaxy tool will contain other paths. 
+Uploading the same files again does not overwrite the paths required by the checkpoint. 
+In that case, select **Load existing weights/checkpoint for a fresh run** to start training 
+from the checkpoint as a new run.
+
+### Training duration and outputs
+
+Use **Stop condition** to choose early stopping or a fixed number of epochs
+(passes through the training data). With early stopping, **Early stopping lag**
+counts validation evaluations without sufficient improvement. The
+**Validation/report frequency in epochs** controls how often validation and
+model saving occur; values greater than 1 must be whole numbers.
+
+The tool produces:
+
+- **best model**: weights exported from the best checkpoint. PP-OCRv6 and inferred architectures use Safetensors; VGSL also offers Core ML.
+- **report**: the training log, including progress and diagnostic messages.
+- **checkpoints**: full training checkpoints for resuming a run or loading into a fresh run.
+- **logger files**: TensorBoard event files and logging metadata. Download this collection to inspect training metrics locally with TensorBoard.
+
+### License
+
+Kraken is licensed under the Apache-2.0 license.
     </help>
     <expand macro="citations"/>
 </tool>
