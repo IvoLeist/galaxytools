@@ -22,17 +22,17 @@
             #if str($linetype).strip() and str($linetype) != 'None'
                 --linetype '$linetype'
             #end if
-            #if str($mask_width).strip() and str($mask_width) != 'None'
-                --mask-width '$mask_width'
+            #if str($contrastive_loss.mask_width).strip() and str($contrastive_loss.mask_width) != 'None'
+                --mask-width '$contrastive_loss.mask_width'
             #end if
-            #if str($mask_probability).strip() and str($mask_probability) != 'None'
-                --mask-probability '$mask_probability'
+            #if str($contrastive_loss.mask_probability).strip() and str($contrastive_loss.mask_probability) != 'None'
+                --mask-probability '$contrastive_loss.mask_probability'
             #end if
-            #if str($num_negatives).strip() and str($num_negatives) != 'None'
-                --num-negatives '$num_negatives'
+            #if str($contrastive_loss.num_negatives).strip() and str($contrastive_loss.num_negatives) != 'None'
+                --num-negatives '$contrastive_loss.num_negatives'
             #end if
-            #if str($logit_temp).strip() and str($logit_temp) != 'None'
-                --logit-temp '$logit_temp'
+            #if str($contrastive_loss.logit_temp).strip() and str($contrastive_loss.logit_temp) != 'None'
+                --logit-temp '$contrastive_loss.logit_temp'
             #end if
             #if $legacy_polygons
                 --legacy-polygons
@@ -60,10 +60,12 @@
             <option value="baselines">Baselines</option>
             <option value="bbox">Bounding boxes</option>
         </param>
-        <param argument="--mask-width" type="integer" optional="true" min="1" label="Mask width"/>
-        <param argument="--mask-probability" type="float" optional="true" min="0" max="1" label="Mask probability"/>
-        <param argument="--num-negatives" type="integer" optional="true" min="1" label="Negative samples"/>
-        <param argument="--logit-temp" type="float" optional="true" min="0" label="Contrastive loss logit temperature"/>
+        <section name="contrastive_loss" title="Masking and contrastive loss" expanded="false">
+            <param argument="--mask-width" type="integer" optional="true" min="1" label="Mask width"/>
+            <param argument="--mask-probability" type="float" optional="true" min="0" max="1" label="Mask probability"/>
+            <param argument="--num-negatives" type="integer" optional="true" min="1" label="Negative samples"/>
+            <param argument="--logit-temp" type="float" optional="true" min="0" label="Contrastive loss logit temperature"/>
+        </section>
         <param argument="--legacy-polygons" type="boolean" truevalue="true" falsevalue="false" checked="false" label="Use legacy polygon extractor"/>
     </inputs>
     <outputs>
@@ -75,15 +77,19 @@
                 <param name="batch_size" value="2"/>
                 <param name="quit" value="fixed"/>
                 <param name="epochs" value="1"/>
-                <param name="augment" value="--augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--augment"/>
+                </section>
             </section>
             <param name="format_type" value="path"/>
             <param name="pad" value="4"/>
             <param name="linetype" value="bbox"/>
-            <param name="mask_width" value="2"/>
-            <param name="mask_probability" value="0.2"/>
-            <param name="num_negatives" value="3"/>
-            <param name="logit_temp" value="0.1"/>
+            <section name="contrastive_loss">
+                <param name="mask_width" value="2"/>
+                <param name="mask_probability" value="0.2"/>
+                <param name="num_negatives" value="3"/>
+                <param name="logit_temp" value="0.1"/>
+            </section>
             <param name="legacy_polygons" value="true"/>
             <assert_command>
                 <has_text text="pretrain"/>

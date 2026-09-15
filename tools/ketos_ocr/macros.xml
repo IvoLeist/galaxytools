@@ -58,7 +58,7 @@
             --height '$arch.input_dimensions.height'
             --max-width '$arch.input_dimensions.max_width'
             --batch-size '$arch.batch_size'
-            --weight-decay '$arch.weight_decay'
+            --weight-decay '$arch.optimization.weight_decay'
             #set $optimizer = $arch.optimization.optimizer_settings
             --optimizer '$optimizer.optimizer'
             #if $optimizer.optimizer in ('SGD', 'RMSprop', 'AdamW+Muon')
@@ -90,12 +90,15 @@
             --freeze-backbone '$arch.freeze_backbone'
         #end if
         #if $arch.recognition_arch != 'ppocrv6'
-            #for $name in ('lrate', 'batch_size', 'weight_decay')
+            #for $name in ('lrate', 'batch_size')
                 #set $value = $arch[$name]
                 #if str($value).strip() and str($value) != 'None'
                     --${name.replace('_', '-')} '$value'
                 #end if
             #end for
+            #if str($arch.optimization.weight_decay).strip() and str($arch.optimization.weight_decay) != 'None'
+                --weight-decay '$arch.optimization.weight_decay'
+            #end if
             #set $optimizer = $arch.optimization.optimizer_settings
             #if $optimizer.optimizer != 'auto'
                 --optimizer '$optimizer.optimizer'
@@ -125,20 +128,20 @@
                 #end if
             #end if
         #end if
-        --quit '$arch.stop_condition.quit'
-        #if $arch.stop_condition.quit == 'early'
-            --min-epochs '$arch.stop_condition.min_epochs'
-            --lag '$arch.stop_condition.lag'
-            --min-delta '$arch.stop_condition.min_delta'
+        --quit '$arch.stopping.stop_condition.quit'
+        #if $arch.stopping.stop_condition.quit == 'early'
+            --min-epochs '$arch.stopping.stop_condition.min_epochs'
+            --lag '$arch.stopping.stop_condition.lag'
+            --min-delta '$arch.stopping.stop_condition.min_delta'
         #else
-            --epochs '$arch.stop_condition.epochs'
+            --epochs '$arch.stopping.stop_condition.epochs'
         #end if
-        #if str($train_opts.freq).strip() and str($train_opts.freq) != 'None'
-            --freq '$train_opts.freq'
+        #if str($arch.stopping.freq).strip() and str($arch.stopping.freq) != 'None'
+            --freq '$arch.stopping.freq'
         #end if
         --gradient-clip-val '$train_opts.gradient_settings.gradient_clip_val'
         --accumulate-grad-batches '$train_opts.gradient_settings.accumulate_grad_batches'
-        $train_opts.augment
+        $train_opts.image_preprocessing.augment
         --logger 'tensorboard'
         --log-dir logs
     ]]></token>
@@ -210,8 +213,8 @@
         #if str($train_opts.partition).strip() and str($train_opts.partition) != 'None'
             --partition '$train_opts.partition'
         #end if
-        #if str($train_opts.augment).strip() and str($train_opts.augment) != 'None'
-            $train_opts.augment
+        #if str($train_opts.image_preprocessing.augment).strip() and str($train_opts.image_preprocessing.augment) != 'None'
+            $train_opts.image_preprocessing.augment
         #end if
         --logger 'tensorboard'
         --log-dir logs
@@ -322,7 +325,6 @@
     </xml>
     <xml name="ketos_training_options">
         <section name="global_opts" title="Global options" expanded="false">
-            <param name="config" type="data" format="yaml" optional="true" label="Experiment YAML configuration" help="Optional ketos --config file. Command-line options selected below are still passed explicitly."/>
             <conditional name="precision">
                 <param name="dtype" type="select" label="Numerical precision">
                     <option value="32" selected="true">32-bit single-point precision</option>
@@ -360,20 +362,24 @@
         <param name="evaluation_data" type="data" multiple="true" format="xml" label="Evaluation data files" help="Ground-truth files used for validation."/>
     </xml>
     <xml name="stop_condition" tokens="early_selected,fixed_selected">
-        <conditional name="stop_condition">
-            <param name="quit" type="select" label="Stop condition">
-                <option value="early" selected="@EARLY_SELECTED@">Early stopping</option>
-                <option value="fixed" selected="@FIXED_SELECTED@">Fixed epoch count</option>
-            </param>
-            <when value="early">
-                <param name="min_epochs" type="integer" value="0" min="0" label="Minimum epochs" help="Minimum number of epochs to train for when using early stopping."/>
-                <param name="lag" type="integer" value="10" min="0" label="Early stopping lag" help="Number of evaluations to wait for improvement in the validation score before stopping training."/>
-                <param name="min_delta" type="float" value="0.0" min="0" label="Minimum validation improvement" help="Minimum improvement in the validation score required to reset early stopping."/>
-            </when>
-            <when value="fixed">
-                <param name="epochs" type="integer" value="100" min="1" label="Epochs" help="Number of epochs to train for."/>
-            </when>
-        </conditional>
+        <section name="stopping" title="Stopping and validation" expanded="true">
+            <conditional name="stop_condition">
+                <param name="quit" type="select" label="Stop condition">
+                    <option value="early" selected="@EARLY_SELECTED@">Early stopping</option>
+                    <option value="fixed" selected="@FIXED_SELECTED@">Fixed epoch count</option>
+                </param>
+                <when value="early">
+                    <param name="min_epochs" type="integer" value="0" min="0" label="Minimum epochs" help="Minimum number of epochs to train for when using early stopping."/>
+                    <param name="lag" type="integer" value="10" min="0" label="Early stopping lag" help="Number of evaluations to wait for improvement in the validation score before stopping training."/>
+                    <param name="min_delta" type="float" value="0.0" min="0" label="Minimum validation improvement" help="Minimum improvement in the validation score required to reset early stopping."/>
+                </when>
+                <when value="fixed">
+                    <param name="epochs" type="integer" value="100" min="1" label="Epochs" help="Number of epochs to train for."/>
+                </when>
+            </conditional>
+            <!-- In theory users could set this to 0, but afaik this would mean validation after every training batch, which could lead to performance issues and early stopping of the training process. -->
+            <param argument="--freq" type="float" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is &gt;1 it must be an integer."/>
+        </section>
     </xml>
     <xml name="recognition_explicit_scheduler" token_warmup="1000" token_cosine_selected="true" token_constant_selected="false">
         <param argument="--warmup" type="integer" min="0" value="@WARMUP@" label="Learning rate warmup" help="Number of steps to linearly ramp the learning rate from zero to the initial learning rate."/>
@@ -428,7 +434,15 @@
         </param>
     </xml>
     <xml name="recognition_training_data_params">
-        <section name="text_normalization" title="Text normalization" expanded="true" help="Normalize ground-truth transcriptions before training.">
+        <section name="image_preprocessing" title="Image preprocessing" expanded="false">
+            <param argument="--pad" type="integer" min="0" value="16" label="Line padding" help="Padding in pixels around the start and end of each line image."/>
+            <param name="legacy_polygons" type="boolean" checked="false" truevalue="--legacy-polygons" falsevalue="" label="Use legacy polygon extraction" help="Use the slower legacy polygon extractor for training."/>
+            <param name="augment" type="select" label="Image augmentation">
+                <option value="--no-augment" selected="true">disabled</option>
+                <option value="--augment">enabled</option>
+            </param>
+        </section>
+        <section name="text_normalization" title="Text normalization and direction" expanded="true" help="Normalize ground-truth transcriptions and configure text direction before training.">
             <param argument="--normalization" type="select" label="Normalize Unicode" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If false, no Unicode normalization is applied.">
                 <option value="None" selected="true">false</option>
                 <option value="NFD">NFD</option>
@@ -437,23 +451,21 @@
                 <option value="NFKC">NFKC</option>
             </param>
             <param name="normalize_whitespace" type="boolean" checked="true" truevalue="--normalize-whitespace" falsevalue="--no-normalize-whitespace" label="Normalize whitespace" help="Normalize Unicode whitespace characters in the ground truth to U+0020 SPACE."/>
-        </section>
-        <conditional name="bidi_settings">
-            <param name="reorder" type="select" label="Bidirectional text reordering" help="Reorder ground-truth code points according to the Unicode bidirectional algorithm.">
-                <option value="yes" selected="true">Yes</option>
-                <option value="no">No</option>
-            </param>
-            <when value="yes">
-                <param argument="--base-dir" type="select" label="Base text direction" help="Set the base text direction used for bidirectional reordering. Auto uses direction information from the input data when available.">
-                    <option value="auto" selected="true">auto</option>
-                    <option value="L">Left-to-right</option>
-                    <option value="R">Right-to-left</option>
+            <conditional name="bidi_settings">
+                <param name="reorder" type="select" label="Bidirectional text reordering" help="Reorder ground-truth code points according to the Unicode bidirectional algorithm.">
+                    <option value="yes" selected="true">Yes</option>
+                    <option value="no">No</option>
                 </param>
-            </when>
-            <when value="no"/>
-        </conditional>
-        <param argument="--pad" type="integer" min="0" value="16" label="Line padding" help="Padding in pixels around the start and end of each line image."/>
-        <param name="legacy_polygons" type="boolean" checked="false" truevalue="--legacy-polygons" falsevalue="" label="Use legacy polygon extraction" help="Use the slower legacy polygon extractor for training."/>
+                <when value="yes">
+                    <param argument="--base-dir" type="select" label="Base text direction" help="Set the base text direction used for bidirectional reordering. Auto uses direction information from the input data when available.">
+                        <option value="auto" selected="true">auto</option>
+                        <option value="L">Left-to-right</option>
+                        <option value="R">Right-to-left</option>
+                    </param>
+                </when>
+                <when value="no"/>
+            </conditional>
+        </section>
     </xml>
     <xml name="recognition_standard_scheduler" token_warmup_value="" token_warmup_optional="true">
         <param argument="--warmup" type="integer" min="0" value="@WARMUP_VALUE@" optional="@WARMUP_OPTIONAL@" label="Learning rate warmup" help="Number of steps to ramp up the learning rate. Leave unset to use Kraken's model defaults; set to 0 to disable warmup."/>
@@ -491,6 +503,7 @@
     </xml>
     <xml name="recognition_common_training_controls" token_default_warmup="" token_optional_warmup="true">
         <section name="optimization" title="Optimizer and scheduler" expanded="false">
+            <param argument="--weight-decay" type="float" min="0" label="Weight decay" optional="true" help="Leave unset to use Kraken's model defaults."/>
             <conditional name="optimizer_settings">
                 <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler. Kraken default leaves these settings to the model.">
                     <option value="auto" selected="true">Kraken default</option>
@@ -519,6 +532,7 @@
     </xml>
     <xml name="vgsl_training_controls">
         <section name="optimization" title="Optimizer and scheduler" expanded="false">
+            <param argument="--weight-decay" type="float" min="0" label="Weight decay" value="0.0"/>
             <conditional name="optimizer_settings">
                 <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler.">
                     <option value="Adam">Adam</option>
@@ -567,11 +581,13 @@
                         <param argument="--lrate" type="float" min="0" value="0.0005" label="Learning rate"/>
                     </when>
                 </conditional>
+                <param argument="--batch-size" type="integer" min="1" value="64" label="Batch size"/>
                 <section name="input_dimensions" title="Input image dimensions" expanded="false">
                     <param argument="--height" type="integer" min="1" value="96" label="Input line height (pixels)" help="Target line height after normalization."/>
                     <param argument="--max-width" type="integer" min="1" value="2560" label="Maximum line width (pixels)" help="Maximum accepted line width after height normalization during training and validation."/>
                 </section>
                 <section name="optimization" title="Optimizer and scheduler" expanded="false">
+                    <param argument="--weight-decay" type="float" min="0" value="0.01" label="Weight decay"/>
                     <conditional name="optimizer_settings">
                         <param argument="--optimizer" type="select" label="Optimizer">
                             <option value="Adam">Adam</option>
@@ -600,8 +616,6 @@
                         </when>
                     </conditional>
                 </section>
-                <param argument="--weight-decay" type="float" min="0" value="0.01" label="Weight decay"/>
-                <param argument="--batch-size" type="integer" min="1" value="64" label="Batch size"/>
                 <!-- TODO create an upstream issue raising the presumed
                     incompatibility of early stopping with PP-OCRv6 training. -->
                 <expand macro="stop_condition" early_selected="false" fixed_selected="true"/>
@@ -622,14 +636,12 @@
                 <param argument="--freeze-backbone" type="integer" min="0" value="0" label="Freeze backbone" help="Number of initial training iterations to keep all but the final layer frozen. Set to 0 to disable."/>
                 <param argument="--lrate" type="float" min="0" value="0.001" label="Learning rate"/>
                 <param argument="--batch-size" type="integer" min="1" value="1" label="Batch size"/>
-                <param argument="--weight-decay" type="float" min="0" value="0.0" label="Weight decay"/>
                 <expand macro="vgsl_training_controls"/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
             <when value="infer">
                 <param argument="--lrate" type="float" min="0" optional="true" label="Learning rate" help="Leave unset to use Kraken's model defaults."/>
                 <param argument="--batch-size" type="integer" min="1" optional="true" label="Batch size" help="Leave unset to use Kraken's model defaults."/>
-                <param argument="--weight-decay" type="float" min="0" optional="true" label="Weight decay" help="Leave unset to use Kraken's model defaults."/>
                 <expand macro="recognition_common_training_controls"/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
@@ -666,21 +678,15 @@
                     </conditional>
                 </when>
                 <when value="resume">
-                    <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume"/>
+                    <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume" help="Before resuming, check that all training parameters match the run that produced this checkpoint, except settings you intentionally want to change. The form does not populate values from the checkpoint, and form defaults can override saved settings. Kraken reuses the checkpoint's data configuration and saved dataset paths; selecting data here does not replace them."/>
                 </when>
             </conditional>
             <expand macro="arch_specific_defaults"/>
-            <expand macro="recognition_training_data_params"/>
-            <!-- In theory users could set this to 0, but afaik this would mean validation after every training batch, which could lead to performance issues and early stopping of the training process. -->
-            <param argument="--freq" type="float" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is &gt;1 it must be an integer."/>
             <section name="gradient_settings" title="Gradient settings" expanded="false">
                 <param argument="--gradient-clip-val" type="float" value="1.0" min="0" label="Gradient clip value" help="Threshold for clipping gradients to help stabilize training."/>
                 <param argument="--accumulate-grad-batches" type="integer" value="1" min="1" label="Gradient accumulation batches" help="Number of batches to accumulate gradients over before updating model weights."/>
             </section>
-            <param name="augment" type="select" label="Image augmentation">
-                <option value="--no-augment" selected="true">disabled</option>
-                <option value="--augment">enabled</option>
-            </param>
+            <expand macro="recognition_training_data_params"/>
         </section>
     </xml>
     <xml name="training_outputs">

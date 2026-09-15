@@ -79,9 +79,6 @@
         ketos_exit_code=0 &&
 
         ketos
-            #if str($global_opts.config).strip() and str($global_opts.config) != 'None'
-                --config '$global_opts.config'
-            #end if
             --device "\$KETOS_DEVICE"
             --workers "\$KETOS_WORKERS"
             --threads "\$KETOS_THREADS"
@@ -110,8 +107,8 @@
             #else
                 --evaluation-data '$evaluation_manifest'
             #end if
-            #if str($train_opts.pad).strip() and str($train_opts.pad) != 'None'
-                --pad '$train_opts.pad'
+            #if str($train_opts.image_preprocessing.pad).strip() and str($train_opts.image_preprocessing.pad) != 'None'
+                --pad '$train_opts.image_preprocessing.pad'
             #end if
             #if str($train_opts.text_normalization.normalization).strip() and str($train_opts.text_normalization.normalization) != 'None'
                 --normalization '$train_opts.text_normalization.normalization'
@@ -119,13 +116,13 @@
             #if str($train_opts.text_normalization.normalize_whitespace).strip() and str($train_opts.text_normalization.normalize_whitespace) != 'None'
                 $train_opts.text_normalization.normalize_whitespace
             #end if
-            #if $train_opts.bidi_settings.reorder == 'yes'
+            #if $train_opts.text_normalization.bidi_settings.reorder == 'yes'
                 --reorder
-                --base-dir '$train_opts.bidi_settings.base_dir'
+                --base-dir '$train_opts.text_normalization.bidi_settings.base_dir'
             #else
                 --no-reorder
             #end if
-            #if $train_opts.legacy_polygons
+            #if $train_opts.image_preprocessing.legacy_polygons
                 --legacy-polygons
             #end if
             #if $training_data.format_type == 'binary'
@@ -226,8 +223,8 @@ validation_${i}/annotation.xml
                 </expand>
             </expand>
         </conditional>
-        <expand macro="ketos_training_options"/>
         <expand macro="training_inputs"/>
+        <expand macro="ketos_training_options"/>
     </inputs>
     <outputs>
         <expand macro="training_outputs"/>
@@ -256,13 +253,17 @@ validation_${i}/annotation.xml
                     <conditional name="ppocrv6_variant">
                         <param name="variant" value="tiny"/>
                     </conditional>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--logger 'tensorboard'"/>
@@ -312,13 +313,8 @@ validation_${i}/annotation.xml
                     <param name="recognition_arch" value="vgsl"/>
                     <param name="weights_format" value="coreml"/>
                     <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
-                    <param name="weight_decay" value="0.02"/>
                     <section name="optimization">
                         <conditional name="optimizer_settings">
                             <param name="optimizer" value="SGD"/>
@@ -328,10 +324,19 @@ validation_${i}/annotation.xml
                                 <param name="gamma" value="0.5"/>
                             </conditional>
                         </conditional>
+                        <param name="weight_decay" value="0.02"/>
+                    </section>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
                     </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--weights-format 'coreml'"/>
@@ -384,13 +389,8 @@ validation_${i}/annotation.xml
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="infer"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
-                    <param name="weight_decay" value="0.02"/>
                     <section name="optimization">
                         <conditional name="optimizer_settings">
                             <param name="optimizer" value="Adam"/>
@@ -400,18 +400,27 @@ validation_${i}/annotation.xml
                                 <param name="cos_min_lr" value="0.00001"/>
                             </conditional>
                         </conditional>
+                        <param name="weight_decay" value="0.02"/>
+                    </section>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
                     </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
                 <section name="text_normalization">
                     <param name="normalization" value="NFKC"/>
                     <param name="normalize_whitespace" value="false"/>
+                    <conditional name="bidi_settings">
+                        <param name="reorder" value="yes"/>
+                        <param name="base_dir" value="R"/>
+                    </conditional>
                 </section>
-                <conditional name="bidi_settings">
-                    <param name="reorder" value="yes"/>
-                    <param name="base_dir" value="R"/>
-                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--load '"/>
@@ -481,13 +490,17 @@ validation_${i}/annotation.xml
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="infer"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="2"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="2"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--resume '"/>
@@ -556,13 +569,17 @@ validation_${i}/annotation.xml
                 <conditional name="arch">
                     <param name="recognition_arch" value="vgsl"/>
                     <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="ln -s '"/>
@@ -613,13 +630,8 @@ validation_${i}/annotation.xml
                 <conditional name="arch">
                     <param name="recognition_arch" value="vgsl"/>
                     <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
-                    <param name="weight_decay" value="0.02"/>
                     <section name="optimization">
                         <conditional name="optimizer_settings">
                             <param name="optimizer" value="AdamW"/>
@@ -629,18 +641,27 @@ validation_${i}/annotation.xml
                                 <param name="sched_patience" value="2"/>
                             </conditional>
                         </conditional>
+                        <param name="weight_decay" value="0.02"/>
+                    </section>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
                     </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
                 <section name="text_normalization">
                     <param name="normalization" value="NFKC"/>
                     <param name="normalize_whitespace" value="false"/>
+                    <conditional name="bidi_settings">
+                        <param name="reorder" value="yes"/>
+                        <param name="base_dir" value="R"/>
+                    </conditional>
                 </section>
-                <conditional name="bidi_settings">
-                    <param name="reorder" value="yes"/>
-                    <param name="base_dir" value="R"/>
-                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--codec '"/>
@@ -695,13 +716,8 @@ validation_${i}/annotation.xml
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="infer"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
-                    <param name="weight_decay" value="0.02"/>
                     <section name="optimization">
                         <conditional name="optimizer_settings">
                             <param name="optimizer" value="RMSprop"/>
@@ -712,17 +728,26 @@ validation_${i}/annotation.xml
                                 <param name="gamma" value="0.5"/>
                             </conditional>
                         </conditional>
+                        <param name="weight_decay" value="0.02"/>
+                    </section>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
                     </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
                 <section name="text_normalization">
                     <param name="normalization" value="NFKC"/>
                     <param name="normalize_whitespace" value="false"/>
+                    <conditional name="bidi_settings">
+                        <param name="reorder" value="no"/>
+                    </conditional>
                 </section>
-                <conditional name="bidi_settings">
-                    <param name="reorder" value="no"/>
-                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--codec '"/>
@@ -921,114 +946,122 @@ validation_${i}/annotation.xml
         <!-- Explicit validation from 1 Arrow dataset(s). -->
         <test expect_num_outputs="4">
             <conditional name="training_data">
-                <param name="format_type" value="binary" />
-                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow" />
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
                 <conditional name="validation">
-                    <param name="validation_source" value="explicit" />
-                    <param name="evaluation_data" value="ketos_train_validation_1.arrow" ftype="arrow" />
+                    <param name="validation_source" value="explicit"/>
+                    <param name="evaluation_data" value="ketos_train_validation_1.arrow" ftype="arrow"/>
                 </conditional>
             </conditional>
             <section name="train_opts">
                 <conditional name="initialization">
-                    <param name="source" value="new" />
+                    <param name="source" value="new"/>
                 </conditional>
                 <conditional name="arch">
-                    <param name="recognition_arch" value="vgsl" />
-                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]" />
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed" />
-                        <param name="epochs" value="1" />
-                    </conditional>
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1" />
-                <param name="augment" value="--no-augment" />
                 <section name="text_normalization">
-                    <param name="normalization" value="NFKC" />
-                    <param name="normalize_whitespace" value="false" />
+                    <param name="normalization" value="NFKC"/>
+                    <param name="normalize_whitespace" value="false"/>
+                    <conditional name="bidi_settings">
+                        <param name="reorder" value="yes"/>
+                        <param name="base_dir" value="R"/>
+                    </conditional>
                 </section>
-                <conditional name="bidi_settings">
-                    <param name="reorder" value="yes" />
-                    <param name="base_dir" value="R" />
-                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
-                <has_text text="--arch 'vgsl'" />
-                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'" />
-                <has_text text="--quit 'fixed'" />
-                <has_text text="--epochs '1'" />
-                <has_text text="--optimizer 'AdamW'" />
-                <not_has_text text="--variant" />
-                <has_text text="--evaluation-data" />
-                <not_has_text text="--partition" />
+                <has_text text="--arch 'vgsl'"/>
+                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'"/>
+                <has_text text="--quit 'fixed'"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--optimizer 'AdamW'"/>
+                <not_has_text text="--variant"/>
+                <has_text text="--evaluation-data"/>
+                <not_has_text text="--partition"/>
             </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
-                    <has_size min="10000" />
+                    <has_size min="10000"/>
                 </assert_contents>
             </output>
             <output name="report" ftype="txt">
                 <assert_contents>
-                    <has_text text="Initializing new model." />
-                    <has_text text="Converting best model" />
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
                 </assert_contents>
             </output>
-            <output_collection name="checkpoints" type="list" count="1" />
+            <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Explicit validation from 2 Arrow dataset(s). -->
         <test expect_num_outputs="4">
             <conditional name="training_data">
-                <param name="format_type" value="binary" />
-                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow" />
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
                 <conditional name="validation">
-                    <param name="validation_source" value="explicit" />
-                    <param name="evaluation_data" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow" />
+                    <param name="validation_source" value="explicit"/>
+                    <param name="evaluation_data" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow"/>
                 </conditional>
             </conditional>
             <section name="train_opts">
                 <conditional name="initialization">
-                    <param name="source" value="new" />
+                    <param name="source" value="new"/>
                 </conditional>
                 <conditional name="arch">
-                    <param name="recognition_arch" value="vgsl" />
-                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]" />
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed" />
-                        <param name="epochs" value="1" />
-                    </conditional>
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1" />
-                <param name="augment" value="--no-augment" />
                 <section name="text_normalization">
-                    <param name="normalization" value="NFKC" />
-                    <param name="normalize_whitespace" value="false" />
+                    <param name="normalization" value="NFKC"/>
+                    <param name="normalize_whitespace" value="false"/>
+                    <conditional name="bidi_settings">
+                        <param name="reorder" value="yes"/>
+                        <param name="base_dir" value="R"/>
+                    </conditional>
                 </section>
-                <conditional name="bidi_settings">
-                    <param name="reorder" value="yes" />
-                    <param name="base_dir" value="R" />
-                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
-                <has_text text="--arch 'vgsl'" />
-                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'" />
-                <has_text text="--quit 'fixed'" />
-                <has_text text="--epochs '1'" />
-                <has_text text="--optimizer 'AdamW'" />
-                <not_has_text text="--variant" />
-                <has_text text="--evaluation-data" />
-                <not_has_text text="--partition" />
+                <has_text text="--arch 'vgsl'"/>
+                <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'"/>
+                <has_text text="--quit 'fixed'"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--optimizer 'AdamW'"/>
+                <not_has_text text="--variant"/>
+                <has_text text="--evaluation-data"/>
+                <not_has_text text="--partition"/>
             </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
-                    <has_size min="10000" />
+                    <has_size min="10000"/>
                 </assert_contents>
             </output>
             <output name="report" ftype="txt">
                 <assert_contents>
-                    <has_text text="Initializing new model." />
-                    <has_text text="Converting best model" />
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
                 </assert_contents>
             </output>
-            <output_collection name="checkpoints" type="list" count="1" />
+            <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Train from two Arrow inputs with a training/validation split. -->
         <test expect_num_outputs="4">
@@ -1047,16 +1080,22 @@ validation_${i}/annotation.xml
                 <conditional name="arch">
                     <param name="recognition_arch" value="vgsl"/>
                     <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
+                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
+                <section name="text_normalization">
+                    <conditional name="bidi_settings">
+                        <param name="reorder" value="no"/>
                     </conditional>
-                </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
-                <conditional name="bidi_settings">
-                    <param name="reorder" value="no"/>
-                </conditional>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--format-type 'binary'"/>
@@ -1098,12 +1137,16 @@ validation_${i}/annotation.xml
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="infer"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                    </section>
                 </conditional>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--load '"/>
@@ -1153,12 +1196,16 @@ validation_${i}/annotation.xml
                 </conditional>
                 <conditional name="arch">
                     <param name="recognition_arch" value="infer"/>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                    </section>
                 </conditional>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--load '"/>
@@ -1584,13 +1631,17 @@ validation_${i}/annotation.xml
                             </conditional>
                         </conditional>
                     </section>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--optimizer 'Adam'"/>
@@ -1659,13 +1710,17 @@ validation_${i}/annotation.xml
                             </conditional>
                         </conditional>
                     </section>
-                    <conditional name="stop_condition">
-                        <param name="quit" value="fixed"/>
-                        <param name="epochs" value="1"/>
-                    </conditional>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1"/>
+                    </section>
                 </conditional>
-                <param name="freq" value="1"/>
-                <param name="augment" value="--no-augment"/>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
             </section>
             <assert_command>
                 <has_text text="--optimizer 'Adam'"/>
@@ -1704,6 +1759,12 @@ validation_${i}/annotation.xml
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
+
+### Resuming a checkpointed run
+
+Before selecting **Resume a checkpointed run**, check that all training parameters match the settings used to produce the checkpoint, except those you intentionally want to change. The form does not read its values from the checkpoint. It still supplies settings such as stopping rules, validation frequency, and gradient settings, so leaving the form defaults unchanged can alter the resumed run. Refer to the original job's parameters when configuring resume. For a fixed epoch count, the limit is the total number of epochs, including those already completed, rather than the number of additional epochs to run.
+
+Kraken restores the checkpoint's data configuration, including dataset paths, instead of using newly supplied data settings. Keep the original data available at the paths recorded in the checkpoint; selecting the same datasets in this form does not repair changed or missing paths. In particular, checkpoints produced from compiled binary datasets depend on their original dataset paths. Matching the training parameters alone does not resolve this path requirement.
     </help>
     <expand macro="citations"/>
 </tool>
