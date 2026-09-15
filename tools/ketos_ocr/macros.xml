@@ -102,10 +102,8 @@
         --gradient-clip-val '$train_opts.gradient_clip_val'
         --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
         $train_opts.augment
-        #if $train_opts.logger.enabled == 'yes'
-            --logger '$train_opts.logger.kind'
-            --log-dir logs
-        #end if
+        --logger 'tensorboard'
+        --log-dir logs
     ]]></token>
     <token name="@TRAINING_ARGS@"><![CDATA[
         --output model
@@ -178,10 +176,8 @@
         #if str($train_opts.augment).strip() and str($train_opts.augment) != 'None'
             $train_opts.augment
         #end if
-        #if $train_opts.logger.enabled == 'yes'
-            --logger '$train_opts.logger.kind'
-            --log-dir logs
-        #end if
+        --logger 'tensorboard'
+        --log-dir logs
     ]]></token>
     <token name="@GROUND_TRUTH_ARGS@"><![CDATA[
         #for $item in $training_data.ground_truth
@@ -204,6 +200,7 @@
     <xml name="requirements">
         <requirements>
             <requirement type="package" version="@TOOL_VERSION@">kraken-ocr</requirement>
+            <requirement type="package" version="2.20.0">tensorboard</requirement>
             <!-- below only available when using a NVIDIA GPU 
                 required for numerical precision options: transformer-engine, transformer-engine-float16 
             -->
@@ -383,9 +380,9 @@
             <when value="constant"/>
         </conditional>
     </xml>
-    <xml name="training_linetype" token_auto="false" token_baselines="false" token_bbox="false">
-        <param argument="--linetype" type="select" label="Training data line type" help="Force the line type of the training data. Automatic detection uses baselines for XML data, bounding boxes for path data, and the recorded type for binary datasets.">
-            <option value="auto" selected="@AUTO@">Detect automatically</option>
+    <xml name="training_linetype" token_baselines="false" token_bbox="false" token_help="Force the line type of the training data.">
+        <param argument="--linetype" type="select" label="Training data line type" help="@HELP@">
+            <yield/>
             <option value="baselines" selected="@BASELINES@">Baselines</option>
             <option value="bbox" selected="@BBOX@">Bounding boxes</option>
         </param>
@@ -540,19 +537,6 @@
                 <option value="--no-augment" selected="true">disabled</option>
                 <option value="--augment">enabled</option>
             </param>
-            <conditional name="logger">
-                <param name="enabled" type="select" label="Metric logger">
-                    <option value="no" selected="true">disabled</option>
-                    <option value="yes">enabled</option>
-                </param>
-                <when value="no"/>
-                <when value="yes">
-                    <param name="kind" type="select" label="Logger backend">
-                        <option value="tensorboard" selected="true">tensorboard</option>
-                        <option value="wandb">wandb</option>
-                    </param>
-                </when>
-            </conditional>
         </section>
     </xml>
     <xml name="training_outputs">
@@ -560,6 +544,11 @@
         <data name="report" format="txt" from_work_dir="training_report.txt" label="${tool.name} on ${on_string}: report"/>
         <collection name="checkpoints" type="list" label="${tool.name} on ${on_string}: checkpoints">
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.ckpt" directory="model" format="binary"/>
+        </collection>
+        <!-- TODO in the galaxy core register tfevents as a new data type -->
+        <collection name="logs" type="list" label="${tool.name} on ${on_string}: logger files">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+\.ya?ml)$" directory="logs" format="yaml" recurse="true" match_relative_path="true"/>
+            <discover_datasets pattern="(?P&lt;designation&gt;(?!.*\.ya?ml$).+)" directory="logs" format="binary" recurse="true" match_relative_path="true"/>
         </collection>
     </xml>
 </macros>

@@ -194,7 +194,9 @@ validation_${i}/annotation.xml
             </param>
             <when value="binary">
                 <param name="ground_truth" type="data" multiple="true" format="arrow" label="Ground-truth data"/>
-                <expand macro="training_linetype" auto="true"/>
+                <expand macro="training_linetype" help="Force the line type of the training data. Automatic detection uses the recorded type for binary datasets.">
+                    <option value="auto" selected="true">Detect automatically</option>
+                </expand>
                 <expand macro="recognition_validation">
                     <param name="evaluation_data" type="data" multiple="true" format="arrow" label="Validation datasets" help="Compiled Arrow datasets used for validation."/>
                 </expand>
@@ -232,7 +234,7 @@ validation_${i}/annotation.xml
     </outputs>
     <tests>
         <!-- Train a small recognition model for one epoch. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
@@ -261,6 +263,8 @@ validation_${i}/annotation.xml
                 <param name="augment" value="--no-augment"/>
             </section>
             <assert_command>
+                <has_text text="--logger 'tensorboard'"/>
+                <has_text text="--log-dir logs"/>
                 <not_has_text text="--linetype"/>
                 <has_text text="--batch-size '1'"/>
                 <has_text text="--variant 'tiny'"/>
@@ -280,9 +284,16 @@ validation_${i}/annotation.xml
                 </assert_contents>
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
+            <output_collection name="logs" type="list" count="2">
+                <element name="lightning_logs/version_0/hparams.yaml" ftype="yaml">
+                    <assert_contents>
+                        <has_size min="1"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
         </test>
         <!-- Export and collect Core ML weights from a small VGSL model. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
@@ -328,7 +339,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Fine-tune existing weights and exercise recognition options. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
@@ -380,7 +391,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Resume epoch 0 into epoch 1 using the checkpoint's staged input paths. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="path"/>
                 <conditional name="input_source">
@@ -447,7 +458,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- A Galaxy .dat checkpoint must be staged as .ckpt for fresh-run loading, starting again at epoch 0. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="path"/>
                 <conditional name="input_source">
@@ -520,7 +531,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Train a new compact VGSL model with an explicit JSON codec for one epoch. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
@@ -574,7 +585,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
         <!-- Replace the loaded codec with an explicit JSON codec and disable bidirectional reordering. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
@@ -789,7 +800,7 @@ validation_${i}/annotation.xml
             </conditional>
         </expand>
         <!-- Explicit validation from 1 Arrow dataset(s). -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary" />
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow" />
@@ -843,7 +854,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1" />
         </test>
         <!-- Explicit validation from 2 Arrow dataset(s). -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary" />
                 <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow" />
@@ -897,7 +908,7 @@ validation_${i}/annotation.xml
             <output_collection name="checkpoints" type="list" count="1" />
         </test>
         <!-- Train from two Arrow inputs with a training/validation split. -->
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
                 <param name="ground_truth" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow"/>
@@ -1420,7 +1431,7 @@ validation_${i}/annotation.xml
         </expand>
     </tests>
     <help format="markdown">
-Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end.
+Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
     </help>
     <expand macro="citations"/>
 </tool>

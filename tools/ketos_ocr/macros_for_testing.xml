@@ -88,7 +88,7 @@
     </xml>
     <!-- Success contract for direct recognition training from paired inputs. -->
     <xml name="train_nonbinary_test" tokens="format_type" token_linetype="baselines">
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="@FORMAT_TYPE@"/>
                 <conditional name="validation">
@@ -134,7 +134,7 @@
         </test>
     </xml>
     <xml name="train_nonbinary_explicit_test" tokens="format_type" token_linetype="baselines">
-        <test expect_num_outputs="3">
+        <test expect_num_outputs="4">
             <conditional name="training_data">
                 <param name="format_type" value="@FORMAT_TYPE@"/>
                 <yield/>
