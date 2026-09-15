@@ -1864,7 +1864,8 @@ validation_${i}/annotation.xml
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
-        <!-- Kraken 7.1.1 regression: Muon/cosine requires a finite training duration. -->
+        <!-- TODO create an upstream issue for this -->
+        <!-- Muon/cosine requires a finite training duration. -->
         <test expect_failure="true" expect_exit_code="1">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
@@ -1918,7 +1919,8 @@ validation_${i}/annotation.xml
                 <not_has_text text="Converting best model"/>
             </assert_stdout>
         </test>
-        <!-- Kraken 7.1.1 regression: 1cycle requires an epoch count, absent with early stopping. -->
+        <!-- TODO create an upstream issue for this -->
+        <!-- 1cycle requires an epoch count, absent with early stopping. -->
         <test expect_failure="true" expect_exit_code="1">
             <conditional name="training_data">
                 <param name="format_type" value="binary"/>
