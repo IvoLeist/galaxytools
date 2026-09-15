@@ -113,11 +113,11 @@
             #if str($train_opts.pad).strip() and str($train_opts.pad) != 'None'
                 --pad '$train_opts.pad'
             #end if
-            #if str($train_opts.normalization).strip() and str($train_opts.normalization) != 'None'
-                --normalization '$train_opts.normalization'
+            #if str($train_opts.text_normalization.normalization).strip() and str($train_opts.text_normalization.normalization) != 'None'
+                --normalization '$train_opts.text_normalization.normalization'
             #end if
-            #if str($train_opts.normalize_whitespace).strip() and str($train_opts.normalize_whitespace) != 'None'
-                $train_opts.normalize_whitespace
+            #if str($train_opts.text_normalization.normalize_whitespace).strip() and str($train_opts.text_normalization.normalize_whitespace) != 'None'
+                $train_opts.text_normalization.normalize_whitespace
             #end if
             #if $train_opts.bidi_settings.reorder == 'yes'
                 --reorder
@@ -314,6 +314,17 @@ validation_${i}/annotation.xml
                         <param name="quit" value="fixed"/>
                         <param name="epochs" value="1"/>
                     </conditional>
+                    <param name="lrate" value="0.002"/>
+                    <param name="batch_size" value="1"/>
+                    <param name="weight_decay" value="0.02"/>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="SGD"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="step"/>
+                            <param name="step_size" value="2"/>
+                            <param name="gamma" value="0.5"/>
+                        </conditional>
+                    </conditional>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
@@ -323,6 +334,17 @@ validation_${i}/annotation.xml
                 <not_has_text text="--max-width"/>
                 <has_text text="--arch 'vgsl'"/>
                 <has_text text="--epochs '1'"/>
+                <has_text text="--lrate '0.002'"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--weight-decay '0.02'"/>
+                <has_text text="--warmup '0'"/>
+                <has_text text="--optimizer 'SGD'"/>
+                <has_text text="--schedule 'step'"/>
+                <has_text text="--step-size '2'"/>
+                <has_text text="--gamma '0.5'"/>
+                <has_text text="--momentum '0.9'"/>
+                <not_has_text text="--variant"/>
+                <not_has_text text="--height"/>
             </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
@@ -362,11 +384,24 @@ validation_${i}/annotation.xml
                         <param name="quit" value="fixed"/>
                         <param name="epochs" value="1"/>
                     </conditional>
+                    <param name="lrate" value="0.002"/>
+                    <param name="batch_size" value="1"/>
+                    <param name="weight_decay" value="0.02"/>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="Adam"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="cosine"/>
+                            <param name="cos_max" value="2"/>
+                            <param name="cos_min_lr" value="0.00001"/>
+                        </conditional>
+                    </conditional>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
-                <param name="normalization" value="NFKC"/>
-                <param name="normalize_whitespace" value="false"/>
+                <section name="text_normalization">
+                    <param name="normalization" value="NFKC"/>
+                    <param name="normalize_whitespace" value="false"/>
+                </section>
                 <conditional name="bidi_settings">
                     <param name="reorder" value="yes"/>
                     <param name="base_dir" value="R"/>
@@ -376,6 +411,20 @@ validation_${i}/annotation.xml
                 <has_text text="--load '"/>
                 <not_has_text text="initial_model.ckpt"/>
                 <not_has_text text="--resume"/>
+                <has_text text="--lrate '0.002'"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--weight-decay '0.02'"/>
+                <not_has_text text="--warmup"/>
+                <has_text text="--optimizer 'Adam'"/>
+                <has_text text="--schedule 'cosine'"/>
+                <has_text text="--cos-max '2'"/>
+                <has_text text="--cos-min-lr '1e-05'"/>
+                <not_has_text text="--variant"/>
+                <not_has_text text="--max-width"/>
+                <not_has_text text="--height"/>
+                <not_has_text text="--arch "/>
+                <not_has_text text="--spec "/>
+                <not_has_text text="--momentum"/>
             </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
@@ -436,6 +485,9 @@ validation_${i}/annotation.xml
             </section>
             <assert_command>
                 <has_text text="--resume '"/>
+                <not_has_text text="--lrate"/>
+                <not_has_text text="--batch-size"/>
+                <not_has_text text="--weight-decay"/>
                 <has_text text="--epochs '2'"/>
                 <not_has_text text="--load"/>
                 <not_has_text text="--resize"/>
@@ -510,6 +562,13 @@ validation_${i}/annotation.xml
                 <has_text text="ln -s '"/>
                 <has_text text="initial_model.ckpt &amp;&amp;"/>
                 <has_text text="--load 'initial_model.ckpt'"/>
+                <has_text text="--lrate '0.001'"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--weight-decay '0.0'"/>
+                <has_text text="--optimizer 'AdamW'"/>
+                <has_text text="--schedule 'constant'"/>
+                <has_text text="--warmup '0'"/>
+                <not_has_text text="--momentum"/>
                 <has_text text="--epochs '1'"/>
                 <not_has_text text="--resume"/>
             </assert_command>
@@ -552,24 +611,47 @@ validation_${i}/annotation.xml
                         <param name="quit" value="fixed"/>
                         <param name="epochs" value="1"/>
                     </conditional>
+                    <param name="lrate" value="0.002"/>
+                    <param name="batch_size" value="1"/>
+                    <param name="weight_decay" value="0.02"/>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="AdamW"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="reduceonplateau"/>
+                            <param name="gamma" value="0.5"/>
+                            <param name="sched_patience" value="2"/>
+                        </conditional>
+                    </conditional>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
-                <param name="normalization" value="NFKC"/>
-                <param name="normalize_whitespace" value="false"/>
+                <section name="text_normalization">
+                    <param name="normalization" value="NFKC"/>
+                    <param name="normalize_whitespace" value="false"/>
+                </section>
                 <conditional name="bidi_settings">
                     <param name="reorder" value="yes"/>
                     <param name="base_dir" value="R"/>
                 </conditional>
             </section>
             <assert_command>
-                <has_text text="--codec &apos;"/>
+                <has_text text="--codec '"/>
                 <has_text text="--arch 'vgsl'"/>
                 <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'"/>
                 <has_text text="--quit 'fixed'"/>
                 <has_text text="--epochs '1'"/>
-                <not_has_text text="--optimizer"/>
                 <not_has_text text="--variant"/>
+                <has_text text="--lrate '0.002'"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--weight-decay '0.02'"/>
+                <has_text text="--warmup '0'"/>
+                <has_text text="--optimizer 'AdamW'"/>
+                <has_text text="--schedule 'reduceonplateau'"/>
+                <has_text text="--gamma '0.5'"/>
+                <has_text text="--sched-patience '2'"/>
+                <not_has_text text="--max-width"/>
+                <not_has_text text="--height"/>
+                <not_has_text text="--momentum"/>
             </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
@@ -609,23 +691,50 @@ validation_${i}/annotation.xml
                         <param name="quit" value="fixed"/>
                         <param name="epochs" value="1"/>
                     </conditional>
+                    <param name="lrate" value="0.002"/>
+                    <param name="batch_size" value="1"/>
+                    <param name="weight_decay" value="0.02"/>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="RMSprop"/>
+                        <param name="momentum" value="0.8"/>
+                        <param name="warmup" value="12"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="exponential"/>
+                            <param name="gamma" value="0.5"/>
+                        </conditional>
+                    </conditional>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
-                <param name="normalization" value="NFKC"/>
-                <param name="normalize_whitespace" value="false"/>
+                <section name="text_normalization">
+                    <param name="normalization" value="NFKC"/>
+                    <param name="normalize_whitespace" value="false"/>
+                </section>
                 <conditional name="bidi_settings">
                     <param name="reorder" value="no"/>
                 </conditional>
             </section>
             <assert_command>
-                <has_text text="--codec &apos;"/>
+                <has_text text="--codec '"/>
                 <has_text text="--resize 'new'"/>
                 <has_text text="--normalization 'NFKC'"/>
                 <has_text text="--no-normalize-whitespace"/>
                 <has_text text="--no-reorder"/>
                 <not_has_text text="--base-dir"/>
                 <not_has_text text="--spec"/>
+                <has_text text="--lrate '0.002'"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--weight-decay '0.02'"/>
+                <has_text text="--warmup '12'"/>
+                <has_text text="--optimizer 'RMSprop'"/>
+                <has_text text="--schedule 'exponential'"/>
+                <has_text text="--gamma '0.5'"/>
+                <has_text text="--momentum '0.8'"/>
+                <not_has_text text="--variant"/>
+                <not_has_text text="--max-width"/>
+                <not_has_text text="--height"/>
+                <not_has_text text="--arch "/>
+                <not_has_text text="--spec "/>
             </assert_command>
             <output name="best_model" ftype="binary">
                 <assert_contents>
@@ -823,8 +932,10 @@ validation_${i}/annotation.xml
                 </conditional>
                 <param name="freq" value="1" />
                 <param name="augment" value="--no-augment" />
-                <param name="normalization" value="NFKC" />
-                <param name="normalize_whitespace" value="false" />
+                <section name="text_normalization">
+                    <param name="normalization" value="NFKC" />
+                    <param name="normalize_whitespace" value="false" />
+                </section>
                 <conditional name="bidi_settings">
                     <param name="reorder" value="yes" />
                     <param name="base_dir" value="R" />
@@ -835,7 +946,7 @@ validation_${i}/annotation.xml
                 <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'" />
                 <has_text text="--quit 'fixed'" />
                 <has_text text="--epochs '1'" />
-                <not_has_text text="--optimizer" />
+                <has_text text="--optimizer 'AdamW'" />
                 <not_has_text text="--variant" />
                 <has_text text="--evaluation-data" />
                 <not_has_text text="--partition" />
@@ -877,8 +988,10 @@ validation_${i}/annotation.xml
                 </conditional>
                 <param name="freq" value="1" />
                 <param name="augment" value="--no-augment" />
-                <param name="normalization" value="NFKC" />
-                <param name="normalize_whitespace" value="false" />
+                <section name="text_normalization">
+                    <param name="normalization" value="NFKC" />
+                    <param name="normalize_whitespace" value="false" />
+                </section>
                 <conditional name="bidi_settings">
                     <param name="reorder" value="yes" />
                     <param name="base_dir" value="R" />
@@ -889,7 +1002,7 @@ validation_${i}/annotation.xml
                 <has_text text="--spec '[1,12,0,1 Cr3,3,8 S1(1x0)1,3]'" />
                 <has_text text="--quit 'fixed'" />
                 <has_text text="--epochs '1'" />
-                <not_has_text text="--optimizer" />
+                <has_text text="--optimizer 'AdamW'" />
                 <not_has_text text="--variant" />
                 <has_text text="--evaluation-data" />
                 <not_has_text text="--partition" />

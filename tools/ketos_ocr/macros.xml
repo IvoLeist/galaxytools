@@ -90,30 +90,39 @@
             --freeze-backbone '$arch.freeze_backbone'
         #end if
         #if $arch.recognition_arch != 'ppocrv6'
-            #for $name in ('lrate', 'batch_size', 'weight_decay', 'momentum', 'warmup')
+            #for $name in ('lrate', 'batch_size', 'weight_decay')
                 #set $value = $arch[$name]
                 #if str($value).strip() and str($value) != 'None'
                     --${name.replace('_', '-')} '$value'
                 #end if
             #end for
-            #if $arch.optimizer != 'auto'
-                --optimizer '$arch.optimizer'
-            #end if
-            #set $scheduler = $arch.scheduler_settings
-            #if $scheduler.schedule != 'auto'
-                --schedule '$scheduler.schedule'
-            #end if
-            #if $scheduler.schedule == 'cosine'
-                --cos-min-lr '$scheduler.cos_min_lr'
-                --cos-max '$scheduler.cos_max'
-            #elif $scheduler.schedule == 'exponential'
-                --gamma '$scheduler.gamma'
-            #elif $scheduler.schedule == 'step'
-                --step-size '$scheduler.step_size'
-                --gamma '$scheduler.gamma'
-            #elif $scheduler.schedule == 'reduceonplateau'
-                --gamma '$scheduler.gamma'
-                --sched-patience '$scheduler.sched_patience'
+            #set $optimizer = $arch.optimizer_settings
+            #if $optimizer.optimizer != 'auto'
+                --optimizer '$optimizer.optimizer'
+                #if str($optimizer.warmup).strip() and str($optimizer.warmup) != 'None'
+                    --warmup '$optimizer.warmup'
+                #end if
+                #if $optimizer.optimizer in ('SGD', 'RMSprop')
+                    #if str($optimizer.momentum).strip() and str($optimizer.momentum) != 'None'
+                        --momentum '$optimizer.momentum'
+                    #end if
+                #end if
+                #set $scheduler = $optimizer.scheduler_settings
+                #if $scheduler.schedule != 'auto'
+                    --schedule '$scheduler.schedule'
+                #end if
+                #if $scheduler.schedule == 'cosine'
+                    --cos-min-lr '$scheduler.cos_min_lr'
+                    --cos-max '$scheduler.cos_max'
+                #elif $scheduler.schedule == 'exponential'
+                    --gamma '$scheduler.gamma'
+                #elif $scheduler.schedule == 'step'
+                    --step-size '$scheduler.step_size'
+                    --gamma '$scheduler.gamma'
+                #elif $scheduler.schedule == 'reduceonplateau'
+                    --gamma '$scheduler.gamma'
+                    --sched-patience '$scheduler.sched_patience'
+                #end if
             #end if
         #end if
         --quit '$arch.stop_condition.quit'
@@ -366,12 +375,12 @@
             </when>
         </conditional>
     </xml>
-    <xml name="ppocrv6_standard_scheduler">
-        <param argument="--warmup" type="integer" min="0" value="1000" label="Learning rate warmup" help="Number of steps to linearly ramp the learning rate from zero to the initial learning rate."/>
+    <xml name="recognition_explicit_scheduler" token_warmup="1000" token_cosine_selected="true" token_constant_selected="false">
+        <param argument="--warmup" type="integer" min="0" value="@WARMUP@" label="Learning rate warmup" help="Number of steps to linearly ramp the learning rate from zero to the initial learning rate."/>
         <conditional name="scheduler_settings">
             <param argument="--schedule" type="select" label="Learning rate scheduler">
-                <option value="cosine" selected="true">Cosine</option>
-                <option value="constant">Constant</option>
+                <option value="cosine" selected="@COSINE_SELECTED@">Cosine</option>
+                <option value="constant" selected="@CONSTANT_SELECTED@">Constant</option>
                 <option value="exponential">Exponential</option>
                 <option value="1cycle">1cycle</option>
                 <option value="step">Step</option>
@@ -419,14 +428,16 @@
         </param>
     </xml>
     <xml name="recognition_training_data_params">
-        <param argument="--normalization" type="select" label="Normalize Unicode" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If false, no Unicode normalization is applied.">
-            <option value="None" selected="true">false</option>
-            <option value="NFD">NFD</option>
-            <option value="NFKD">NFKD</option>
-            <option value="NFC">NFC</option>
-            <option value="NFKC">NFKC</option>
-        </param>
-        <param name="normalize_whitespace" type="boolean" checked="true" truevalue="--normalize-whitespace" falsevalue="--no-normalize-whitespace" label="Normalize whitespace" help="Normalize Unicode whitespace characters in the ground truth to U+0020 SPACE."/>
+        <section name="text_normalization" title="Text normalization" expanded="true" help="Normalize ground-truth transcriptions before training.">
+            <param argument="--normalization" type="select" label="Normalize Unicode" help="Normalize ground-truth transcriptions using the selected Unicode normalization form. If false, no Unicode normalization is applied.">
+                <option value="None" selected="true">false</option>
+                <option value="NFD">NFD</option>
+                <option value="NFKD">NFKD</option>
+                <option value="NFC">NFC</option>
+                <option value="NFKC">NFKC</option>
+            </param>
+            <param name="normalize_whitespace" type="boolean" checked="true" truevalue="--normalize-whitespace" falsevalue="--no-normalize-whitespace" label="Normalize whitespace" help="Normalize Unicode whitespace characters in the ground truth to U+0020 SPACE."/>
+        </section>
         <conditional name="bidi_settings">
             <param name="reorder" type="select" label="Bidirectional text reordering" help="Reorder ground-truth code points according to the Unicode bidirectional algorithm.">
                 <option value="yes" selected="true">Yes</option>
@@ -444,19 +455,8 @@
         <param argument="--pad" type="integer" min="0" value="16" label="Line padding" help="Padding in pixels around the start and end of each line image."/>
         <param name="legacy_polygons" type="boolean" checked="false" truevalue="--legacy-polygons" falsevalue="" label="Use legacy polygon extraction" help="Use the slower legacy polygon extractor for training."/>
     </xml>
-    <xml name="recognition_common_training_controls">
-        <param argument="--lrate" type="float" min="0" optional="true" label="Learning rate" help="Leave unset to use Kraken's model defaults."/>
-        <param argument="--batch-size" type="integer" min="1" optional="true" label="Batch size" help="Leave unset to use Kraken's model defaults."/>
-        <param argument="--weight-decay" type="float" min="0" optional="true" label="Weight decay" help="Leave unset to use Kraken's model defaults."/>
-        <param argument="--optimizer" type="select" label="Optimizer">
-            <option value="auto" selected="true">Kraken default</option>
-            <option value="Adam">Adam</option>
-            <option value="SGD">SGD</option>
-            <option value="RMSprop">RMSprop</option>
-            <option value="AdamW">AdamW</option>
-        </param>
-        <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Used by SGD and RMSprop. Leave unset to use Kraken's model defaults."/>
-        <param argument="--warmup" type="integer" min="0" optional="true" label="Learning rate warmup" help="Number of steps to ramp up the learning rate. Leave unset to use Kraken's model defaults; set to 0 to disable warmup."/>
+    <xml name="recognition_standard_scheduler" token_warmup_value="" token_warmup_optional="true">
+        <param argument="--warmup" type="integer" min="0" value="@WARMUP_VALUE@" optional="@WARMUP_OPTIONAL@" label="Learning rate warmup" help="Number of steps to ramp up the learning rate. Leave unset to use Kraken's model defaults; set to 0 to disable warmup."/>
         <conditional name="scheduler_settings">
             <param argument="--schedule" type="select" label="Learning rate scheduler">
                 <option value="auto" selected="true">Kraken default</option>
@@ -486,6 +486,56 @@
                     <validator type="in_range" min="0" max="1" exclude_max="true"/>
                 </param>
                 <param argument="--sched-patience" type="integer" min="0" value="5" label="Scheduler patience" help="Number of validation runs to wait before reducing the learning rate."/>
+            </when>
+        </conditional>
+    </xml>
+    <xml name="recognition_common_training_controls" token_default_warmup="" token_optional_warmup="true">
+        <conditional name="optimizer_settings">
+            <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler. Kraken default leaves these settings to the model.">
+                <option value="auto" selected="true">Kraken default</option>
+                <option value="Adam">Adam</option>
+                <option value="SGD">SGD</option>
+                <option value="RMSprop">RMSprop</option>
+                <option value="AdamW">AdamW</option>
+            </param>
+            <when value="auto"/>
+            <when value="Adam">
+                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+            </when>
+            <when value="SGD">
+                <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Momentum used by SGD. Leave unset to use Kraken's model defaults."/>
+                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+            </when>
+            <when value="RMSprop">
+                <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Momentum used by RMSprop. Leave unset to use Kraken's model defaults."/>
+                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+            </when>
+            <when value="AdamW">
+                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+            </when>
+        </conditional>
+    </xml>
+    <xml name="vgsl_training_controls">
+        <conditional name="optimizer_settings">
+            <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler.">
+                <option value="Adam">Adam</option>
+                <option value="SGD">SGD</option>
+                <option value="RMSprop">RMSprop</option>
+                <option value="AdamW" selected="true">AdamW</option>
+            </param>
+            <when value="Adam">
+                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+            </when>
+            <when value="SGD">
+                <param argument="--momentum" type="float" min="0" label="Momentum" help="Momentum used by SGD." value="0.9"/>
+                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+            </when>
+            <when value="RMSprop">
+                <param argument="--momentum" type="float" min="0" label="Momentum" help="Momentum used by RMSprop." value="0.9"/>
+                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+            </when>
+            <when value="AdamW">
+                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
             </when>
         </conditional>
     </xml>
@@ -524,10 +574,10 @@
                         <option value="AdamW+Muon" selected="true">AdamW + Muon</option>
                     </param>
                     <when value="Adam">
-                        <expand macro="ppocrv6_standard_scheduler"/>
+                        <expand macro="recognition_explicit_scheduler"/>
                     </when>
                     <when value="AdamW">
-                        <expand macro="ppocrv6_standard_scheduler"/>
+                        <expand macro="recognition_explicit_scheduler"/>
                     </when>
                     <when value="AdamW+Muon">
                         <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the Muon component of the AdamW + Muon optimizer."/>
@@ -535,11 +585,11 @@
                     </when>
                     <when value="SGD">
                         <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the SGD optimizer."/>
-                        <expand macro="ppocrv6_standard_scheduler"/>
+                        <expand macro="recognition_explicit_scheduler"/>
                     </when>
                     <when value="RMSprop">
                         <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the RMSprop optimizer."/>
-                        <expand macro="ppocrv6_standard_scheduler"/>
+                        <expand macro="recognition_explicit_scheduler"/>
                     </when>
                 </conditional>
                 <param argument="--weight-decay" type="float" min="0" value="0.01" label="Weight decay"/>
@@ -562,10 +612,16 @@
                     </sanitizer>
                 </param>
                 <param argument="--freeze-backbone" type="integer" min="0" value="0" label="Freeze backbone" help="Number of initial training iterations to keep all but the final layer frozen. Set to 0 to disable."/>
-                <expand macro="recognition_common_training_controls"/>
+                <param argument="--lrate" type="float" min="0" value="0.001" label="Learning rate"/>
+                <param argument="--batch-size" type="integer" min="1" value="1" label="Batch size"/>
+                <param argument="--weight-decay" type="float" min="0" value="0.0" label="Weight decay"/>
+                <expand macro="vgsl_training_controls"/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
             <when value="infer">
+                <param argument="--lrate" type="float" min="0" optional="true" label="Learning rate" help="Leave unset to use Kraken's model defaults."/>
+                <param argument="--batch-size" type="integer" min="1" optional="true" label="Batch size" help="Leave unset to use Kraken's model defaults."/>
+                <param argument="--weight-decay" type="float" min="0" optional="true" label="Weight decay" help="Leave unset to use Kraken's model defaults."/>
                 <expand macro="recognition_common_training_controls"/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
