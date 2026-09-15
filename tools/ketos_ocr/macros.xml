@@ -82,11 +82,39 @@
                 --step-size '$scheduler.step_size'
                 --gamma '$scheduler.gamma'
             #elif $scheduler.schedule == 'reduceonplateau'
+                --gamma '$scheduler.gamma'
                 --sched-patience '$scheduler.sched_patience'
             #end if
         #elif $arch.recognition_arch == 'vgsl'
             --spec '$arch.vgsl_spec'
             --freeze-backbone '$arch.freeze_backbone'
+        #end if
+        #if $arch.recognition_arch != 'ppocrv6'
+            #for $name in ('lrate', 'batch_size', 'weight_decay', 'momentum', 'warmup')
+                #set $value = $arch[$name]
+                #if str($value).strip() and str($value) != 'None'
+                    --${name.replace('_', '-')} '$value'
+                #end if
+            #end for
+            #if $arch.optimizer != 'auto'
+                --optimizer '$arch.optimizer'
+            #end if
+            #set $scheduler = $arch.scheduler_settings
+            #if $scheduler.schedule != 'auto'
+                --schedule '$scheduler.schedule'
+            #end if
+            #if $scheduler.schedule == 'cosine'
+                --cos-min-lr '$scheduler.cos_min_lr'
+                --cos-max '$scheduler.cos_max'
+            #elif $scheduler.schedule == 'exponential'
+                --gamma '$scheduler.gamma'
+            #elif $scheduler.schedule == 'step'
+                --step-size '$scheduler.step_size'
+                --gamma '$scheduler.gamma'
+            #elif $scheduler.schedule == 'reduceonplateau'
+                --gamma '$scheduler.gamma'
+                --sched-patience '$scheduler.sched_patience'
+            #end if
         #end if
         --quit '$arch.stop_condition.quit'
         #if $arch.stop_condition.quit == 'early'
@@ -363,6 +391,9 @@
                 <param argument="--gamma" type="float" min="0" value="0.1" label="Learning rate decay factor"/>
             </when>
             <when value="reduceonplateau">
+                <param argument="--gamma" type="float" min="0" max="1" value="0.1" label="Learning rate decay factor" help="Multiply the learning rate by this factor when validation performance stops improving.">
+                    <validator type="in_range" min="0" max="1" exclude_max="true"/>
+                </param>
                 <param argument="--sched-patience" type="integer" min="0" value="5" label="Scheduler patience" help="Number of validation runs to wait before reducing the learning rate."/>
             </when>
         </conditional>
@@ -412,6 +443,51 @@
         </conditional>
         <param argument="--pad" type="integer" min="0" value="16" label="Line padding" help="Padding in pixels around the start and end of each line image."/>
         <param name="legacy_polygons" type="boolean" checked="false" truevalue="--legacy-polygons" falsevalue="" label="Use legacy polygon extraction" help="Use the slower legacy polygon extractor for training."/>
+    </xml>
+    <xml name="recognition_common_training_controls">
+        <param argument="--lrate" type="float" min="0" optional="true" label="Learning rate" help="Leave unset to use Kraken's model defaults."/>
+        <param argument="--batch-size" type="integer" min="1" optional="true" label="Batch size" help="Leave unset to use Kraken's model defaults."/>
+        <param argument="--weight-decay" type="float" min="0" optional="true" label="Weight decay" help="Leave unset to use Kraken's model defaults."/>
+        <param argument="--optimizer" type="select" label="Optimizer">
+            <option value="auto" selected="true">Kraken default</option>
+            <option value="Adam">Adam</option>
+            <option value="SGD">SGD</option>
+            <option value="RMSprop">RMSprop</option>
+            <option value="AdamW">AdamW</option>
+        </param>
+        <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Used by SGD and RMSprop. Leave unset to use Kraken's model defaults."/>
+        <param argument="--warmup" type="integer" min="0" optional="true" label="Learning rate warmup" help="Number of steps to ramp up the learning rate. Leave unset to use Kraken's model defaults; set to 0 to disable warmup."/>
+        <conditional name="scheduler_settings">
+            <param argument="--schedule" type="select" label="Learning rate scheduler">
+                <option value="auto" selected="true">Kraken default</option>
+                <option value="cosine">Cosine</option>
+                <option value="constant">Constant</option>
+                <option value="exponential">Exponential</option>
+                <option value="1cycle">1cycle</option>
+                <option value="step">Step</option>
+                <option value="reduceonplateau">Reduce on plateau</option>
+            </param>
+            <when value="auto"/>
+            <when value="constant"/>
+            <when value="cosine">
+                <param argument="--cos-max" type="integer" min="1" value="10" label="Cosine maximum" help="Epoch at which the cosine learning rate schedule reaches its minimum learning rate."/>
+                <param argument="--cos-min-lr" type="float" min="0" value="0.000001" label="Minimum cosine learning rate"/>
+            </when>
+            <when value="exponential">
+                <param argument="--gamma" type="float" min="0" value="0.1" label="Learning rate decay factor"/>
+            </when>
+            <when value="1cycle"/>
+            <when value="step">
+                <param argument="--step-size" type="integer" min="1" value="10" label="Step size" help="Number of validation runs between learning rate decay steps."/>
+                <param argument="--gamma" type="float" min="0" value="0.1" label="Learning rate decay factor"/>
+            </when>
+            <when value="reduceonplateau">
+                <param argument="--gamma" type="float" min="0" max="1" value="0.1" label="Learning rate decay factor" help="Multiply the learning rate by this factor when validation performance stops improving.">
+                    <validator type="in_range" min="0" max="1" exclude_max="true"/>
+                </param>
+                <param argument="--sched-patience" type="integer" min="0" value="5" label="Scheduler patience" help="Number of validation runs to wait before reducing the learning rate."/>
+            </when>
+        </conditional>
     </xml>
     <xml name="arch_specific_defaults">
         <conditional name="arch">
@@ -486,9 +562,11 @@
                     </sanitizer>
                 </param>
                 <param argument="--freeze-backbone" type="integer" min="0" value="0" label="Freeze backbone" help="Number of initial training iterations to keep all but the final layer frozen. Set to 0 to disable."/>
+                <expand macro="recognition_common_training_controls"/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
             <when value="infer">
+                <expand macro="recognition_common_training_controls"/>
                 <expand macro="stop_condition" early_selected="true" fixed_selected="false"/>
             </when>
         </conditional>

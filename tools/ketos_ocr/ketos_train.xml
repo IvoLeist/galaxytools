@@ -1429,6 +1429,147 @@ validation_${i}/annotation.xml
                 </conditional>
             </conditional>
         </expand>
+        <!-- Reduce-on-plateau uses the default gamma. -->
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="ppocrv6"/>
+                    <param name="batch_size" value="1"/>
+                    <param name="max_width" value="2048"/>
+                    <conditional name="ppocrv6_variant">
+                        <param name="variant" value="tiny"/>
+                    </conditional>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="Adam"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="reduceonplateau"/>
+                            <param name="sched_patience" value="2"/>
+                        </conditional>
+                    </conditional>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+            </section>
+            <assert_command>
+                <has_text text="--optimizer 'Adam'"/>
+                <has_text text="--schedule 'reduceonplateau'"/>
+                <has_text text="--gamma '0.1'"/>
+                <has_text text="--sched-patience '2'"/>
+                <has_text text="--logger 'tensorboard'"/>
+                <has_text text="--log-dir logs"/>
+                <not_has_text text="--linetype"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--variant 'tiny'"/>
+                <has_text text="--max-width '2048'"/>
+                <has_text text="--weights-format 'safetensors'"/>
+                <has_text text="--epochs '1'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+            <output_collection name="logs" type="list" count="2">
+                <element name="lightning_logs/version_0/hparams.yaml" ftype="yaml">
+                    <assert_contents>
+                        <has_size min="1"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
+        <!-- Reduce-on-plateau uses a custom gamma. -->
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="ppocrv6"/>
+                    <param name="batch_size" value="1"/>
+                    <param name="max_width" value="2048"/>
+                    <conditional name="ppocrv6_variant">
+                        <param name="variant" value="tiny"/>
+                    </conditional>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="Adam"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="reduceonplateau"/>
+                            <param name="sched_patience" value="2"/>
+                            <param name="gamma" value="0.5"/>
+                        </conditional>
+                    </conditional>
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </conditional>
+                <param name="freq" value="1"/>
+                <param name="augment" value="--no-augment"/>
+            </section>
+            <assert_command>
+                <has_text text="--optimizer 'Adam'"/>
+                <has_text text="--schedule 'reduceonplateau'"/>
+                <has_text text="--gamma '0.5'"/>
+                <has_text text="--sched-patience '2'"/>
+                <has_text text="--logger 'tensorboard'"/>
+                <has_text text="--log-dir logs"/>
+                <not_has_text text="--linetype"/>
+                <has_text text="--batch-size '1'"/>
+                <has_text text="--variant 'tiny'"/>
+                <has_text text="--max-width '2048'"/>
+                <has_text text="--weights-format 'safetensors'"/>
+                <has_text text="--epochs '1'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="10000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Initializing new model."/>
+                    <has_text text="Converting best model"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+            <output_collection name="logs" type="list" count="2">
+                <element name="lightning_logs/version_0/hparams.yaml" ftype="yaml">
+                    <assert_contents>
+                        <has_size min="1"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
