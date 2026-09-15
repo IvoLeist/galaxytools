@@ -1805,6 +1805,34 @@ validation_${i}/annotation.xml
                 <not_has_text text="Converting best model"/>
             </assert_stdout>
         </test>
+        <!-- Frequencies above 1 must be whole numbers; reject before training. -->
+        <test expect_failure="true">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <param name="batch_size" value="1"/>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="fixed"/>
+                            <param name="epochs" value="1"/>
+                        </conditional>
+                        <param name="freq" value="1.5"/>
+                    </section>
+                </conditional>
+            </section>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
