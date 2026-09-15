@@ -55,11 +55,11 @@
         #if $arch.recognition_arch == 'ppocrv6'
             --variant '$arch.ppocrv6_variant.variant'
             --lrate '$arch.ppocrv6_variant.lrate'
-            --height '$arch.height'
-            --max-width '$arch.max_width'
+            --height '$arch.input_dimensions.height'
+            --max-width '$arch.input_dimensions.max_width'
             --batch-size '$arch.batch_size'
             --weight-decay '$arch.weight_decay'
-            #set $optimizer = $arch.optimizer_settings
+            #set $optimizer = $arch.optimization.optimizer_settings
             --optimizer '$optimizer.optimizer'
             #if $optimizer.optimizer in ('SGD', 'RMSprop', 'AdamW+Muon')
                 --momentum '$optimizer.momentum'
@@ -96,7 +96,7 @@
                     --${name.replace('_', '-')} '$value'
                 #end if
             #end for
-            #set $optimizer = $arch.optimizer_settings
+            #set $optimizer = $arch.optimization.optimizer_settings
             #if $optimizer.optimizer != 'auto'
                 --optimizer '$optimizer.optimizer'
                 #if str($optimizer.warmup).strip() and str($optimizer.warmup) != 'None'
@@ -136,8 +136,8 @@
         #if str($train_opts.freq).strip() and str($train_opts.freq) != 'None'
             --freq '$train_opts.freq'
         #end if
-        --gradient-clip-val '$train_opts.gradient_clip_val'
-        --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
+        --gradient-clip-val '$train_opts.gradient_settings.gradient_clip_val'
+        --accumulate-grad-batches '$train_opts.gradient_settings.accumulate_grad_batches'
         $train_opts.augment
         --logger 'tensorboard'
         --log-dir logs
@@ -180,11 +180,11 @@
         #if str($train_opts.weight_decay).strip() and str($train_opts.weight_decay) != 'None'
             --weight-decay '$train_opts.weight_decay'
         #end if
-        #if str($train_opts.gradient_clip_val).strip() and str($train_opts.gradient_clip_val) != 'None'
-            --gradient-clip-val '$train_opts.gradient_clip_val'
+        #if str($train_opts.gradient_settings.gradient_clip_val).strip() and str($train_opts.gradient_settings.gradient_clip_val) != 'None'
+            --gradient-clip-val '$train_opts.gradient_settings.gradient_clip_val'
         #end if
-        #if str($train_opts.accumulate_grad_batches).strip() and str($train_opts.accumulate_grad_batches) != 'None'
-            --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
+        #if str($train_opts.gradient_settings.accumulate_grad_batches).strip() and str($train_opts.gradient_settings.accumulate_grad_batches) != 'None'
+            --accumulate-grad-batches '$train_opts.gradient_settings.accumulate_grad_batches'
         #end if
         #if str($train_opts.warmup).strip() and str($train_opts.warmup) != 'None'
             --warmup '$train_opts.warmup'
@@ -490,54 +490,58 @@
         </conditional>
     </xml>
     <xml name="recognition_common_training_controls" token_default_warmup="" token_optional_warmup="true">
-        <conditional name="optimizer_settings">
-            <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler. Kraken default leaves these settings to the model.">
-                <option value="auto" selected="true">Kraken default</option>
-                <option value="Adam">Adam</option>
-                <option value="SGD">SGD</option>
-                <option value="RMSprop">RMSprop</option>
-                <option value="AdamW">AdamW</option>
-            </param>
-            <when value="auto"/>
-            <when value="Adam">
-                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
-            </when>
-            <when value="SGD">
-                <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Momentum used by SGD. Leave unset to use Kraken's model defaults."/>
-                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
-            </when>
-            <when value="RMSprop">
-                <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Momentum used by RMSprop. Leave unset to use Kraken's model defaults."/>
-                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
-            </when>
-            <when value="AdamW">
-                <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
-            </when>
-        </conditional>
+        <section name="optimization" title="Optimizer and scheduler" expanded="false">
+            <conditional name="optimizer_settings">
+                <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler. Kraken default leaves these settings to the model.">
+                    <option value="auto" selected="true">Kraken default</option>
+                    <option value="Adam">Adam</option>
+                    <option value="SGD">SGD</option>
+                    <option value="RMSprop">RMSprop</option>
+                    <option value="AdamW">AdamW</option>
+                </param>
+                <when value="auto"/>
+                <when value="Adam">
+                    <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+                </when>
+                <when value="SGD">
+                    <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Momentum used by SGD. Leave unset to use Kraken's model defaults."/>
+                    <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+                </when>
+                <when value="RMSprop">
+                    <param argument="--momentum" type="float" min="0" optional="true" label="Momentum" help="Momentum used by RMSprop. Leave unset to use Kraken's model defaults."/>
+                    <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+                </when>
+                <when value="AdamW">
+                    <expand macro="recognition_standard_scheduler" warmup_value="@DEFAULT_WARMUP@" warmup_optional="@OPTIONAL_WARMUP@"/>
+                </when>
+            </conditional>
+        </section>
     </xml>
     <xml name="vgsl_training_controls">
-        <conditional name="optimizer_settings">
-            <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler.">
-                <option value="Adam">Adam</option>
-                <option value="SGD">SGD</option>
-                <option value="RMSprop">RMSprop</option>
-                <option value="AdamW" selected="true">AdamW</option>
-            </param>
-            <when value="Adam">
-                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
-            </when>
-            <when value="SGD">
-                <param argument="--momentum" type="float" min="0" label="Momentum" help="Momentum used by SGD." value="0.9"/>
-                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
-            </when>
-            <when value="RMSprop">
-                <param argument="--momentum" type="float" min="0" label="Momentum" help="Momentum used by RMSprop." value="0.9"/>
-                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
-            </when>
-            <when value="AdamW">
-                <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
-            </when>
-        </conditional>
+        <section name="optimization" title="Optimizer and scheduler" expanded="false">
+            <conditional name="optimizer_settings">
+                <param argument="--optimizer" type="select" label="Optimizer" help="Select an optimizer to configure its warmup and learning rate scheduler.">
+                    <option value="Adam">Adam</option>
+                    <option value="SGD">SGD</option>
+                    <option value="RMSprop">RMSprop</option>
+                    <option value="AdamW" selected="true">AdamW</option>
+                </param>
+                <when value="Adam">
+                    <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+                </when>
+                <when value="SGD">
+                    <param argument="--momentum" type="float" min="0" label="Momentum" help="Momentum used by SGD." value="0.9"/>
+                    <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+                </when>
+                <when value="RMSprop">
+                    <param argument="--momentum" type="float" min="0" label="Momentum" help="Momentum used by RMSprop." value="0.9"/>
+                    <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+                </when>
+                <when value="AdamW">
+                    <expand macro="recognition_explicit_scheduler" warmup="0" cosine_selected="false" constant_selected="true"/>
+                </when>
+            </conditional>
+        </section>
     </xml>
     <xml name="arch_specific_defaults">
         <conditional name="arch">
@@ -563,35 +567,39 @@
                         <param argument="--lrate" type="float" min="0" value="0.0005" label="Learning rate"/>
                     </when>
                 </conditional>
-                <param argument="--height" type="integer" min="1" value="96" label="Input line height"/>
-                <param argument="--max-width" type="integer" min="1" value="2560" label="Maximum line width" help="Maximum line width in pixels after height normalization."/>
-                <conditional name="optimizer_settings">
-                    <param argument="--optimizer" type="select" label="Optimizer">
-                        <option value="Adam">Adam</option>
-                        <option value="SGD">SGD</option>
-                        <option value="RMSprop">RMSprop</option>
-                        <option value="AdamW">AdamW</option>
-                        <option value="AdamW+Muon" selected="true">AdamW + Muon</option>
-                    </param>
-                    <when value="Adam">
-                        <expand macro="recognition_explicit_scheduler"/>
-                    </when>
-                    <when value="AdamW">
-                        <expand macro="recognition_explicit_scheduler"/>
-                    </when>
-                    <when value="AdamW+Muon">
-                        <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the Muon component of the AdamW + Muon optimizer."/>
-                        <expand macro="ppocrv6_muon_scheduler"/>
-                    </when>
-                    <when value="SGD">
-                        <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the SGD optimizer."/>
-                        <expand macro="recognition_explicit_scheduler"/>
-                    </when>
-                    <when value="RMSprop">
-                        <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the RMSprop optimizer."/>
-                        <expand macro="recognition_explicit_scheduler"/>
-                    </when>
-                </conditional>
+                <section name="input_dimensions" title="Input image dimensions" expanded="false">
+                    <param argument="--height" type="integer" min="1" value="96" label="Input line height (pixels)" help="Target line height after normalization."/>
+                    <param argument="--max-width" type="integer" min="1" value="2560" label="Maximum line width (pixels)" help="Maximum accepted line width after height normalization during training and validation."/>
+                </section>
+                <section name="optimization" title="Optimizer and scheduler" expanded="false">
+                    <conditional name="optimizer_settings">
+                        <param argument="--optimizer" type="select" label="Optimizer">
+                            <option value="Adam">Adam</option>
+                            <option value="SGD">SGD</option>
+                            <option value="RMSprop">RMSprop</option>
+                            <option value="AdamW">AdamW</option>
+                            <option value="AdamW+Muon" selected="true">AdamW + Muon</option>
+                        </param>
+                        <when value="Adam">
+                            <expand macro="recognition_explicit_scheduler"/>
+                        </when>
+                        <when value="AdamW">
+                            <expand macro="recognition_explicit_scheduler"/>
+                        </when>
+                        <when value="AdamW+Muon">
+                            <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the Muon component of the AdamW + Muon optimizer."/>
+                            <expand macro="ppocrv6_muon_scheduler"/>
+                        </when>
+                        <when value="SGD">
+                            <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the SGD optimizer."/>
+                            <expand macro="recognition_explicit_scheduler"/>
+                        </when>
+                        <when value="RMSprop">
+                            <param argument="--momentum" type="float" min="0" value="0.95" label="Momentum" help="Momentum used by the RMSprop optimizer."/>
+                            <expand macro="recognition_explicit_scheduler"/>
+                        </when>
+                    </conditional>
+                </section>
                 <param argument="--weight-decay" type="float" min="0" value="0.01" label="Weight decay"/>
                 <param argument="--batch-size" type="integer" min="1" value="64" label="Batch size"/>
                 <!-- TODO create an upstream issue raising the presumed
@@ -628,7 +636,7 @@
         </conditional>
     </xml>
     <xml name="training_inputs">
-        <section name="train_opts" title="Training options" expanded="false">
+        <section name="train_opts" title="Training options" expanded="true">
             <conditional name="initialization">
                 <param name="source" type="select" label="Initialization">
                     <option value="new" selected="true">Train a new model</option>
@@ -665,8 +673,10 @@
             <expand macro="recognition_training_data_params"/>
             <!-- In theory users could set this to 0, but afaik this would mean validation after every training batch, which could lead to performance issues and early stopping of the training process. -->
             <param argument="--freq" type="float" value="1.0" min="0.1" label="Validation/report frequency in epochs" help="Model saving and report generation frequency in epochs. If frequency is &gt;1 it must be an integer."/>
-            <param argument="--gradient-clip-val" type="float" value="1.0" min="0" label="Gradient clip value"/>
-            <param argument="--accumulate-grad-batches" type="integer" value="1" min="1" label="Gradient accumulation batches" help="Number of batches to accumulate gradient across."/>
+            <section name="gradient_settings" title="Gradient settings" expanded="false">
+                <param argument="--gradient-clip-val" type="float" value="1.0" min="0" label="Gradient clip value" help="Threshold for clipping gradients to help stabilize training."/>
+                <param argument="--accumulate-grad-batches" type="integer" value="1" min="1" label="Gradient accumulation batches" help="Number of batches to accumulate gradients over before updating model weights."/>
+            </section>
             <param name="augment" type="select" label="Image augmentation">
                 <option value="--no-augment" selected="true">disabled</option>
                 <option value="--augment">enabled</option>

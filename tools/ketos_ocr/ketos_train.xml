@@ -250,7 +250,9 @@ validation_${i}/annotation.xml
                 <conditional name="arch">
                     <param name="recognition_arch" value="ppocrv6"/>
                     <param name="batch_size" value="1"/>
-                    <param name="max_width" value="2048"/>
+                    <section name="input_dimensions">
+                        <param name="max_width" value="2048"/>
+                    </section>
                     <conditional name="ppocrv6_variant">
                         <param name="variant" value="tiny"/>
                     </conditional>
@@ -317,14 +319,16 @@ validation_${i}/annotation.xml
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
                     <param name="weight_decay" value="0.02"/>
-                    <conditional name="optimizer_settings">
-                        <param name="optimizer" value="SGD"/>
-                        <conditional name="scheduler_settings">
-                            <param name="schedule" value="step"/>
-                            <param name="step_size" value="2"/>
-                            <param name="gamma" value="0.5"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="SGD"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="step"/>
+                                <param name="step_size" value="2"/>
+                                <param name="gamma" value="0.5"/>
+                            </conditional>
                         </conditional>
-                    </conditional>
+                    </section>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
@@ -387,14 +391,16 @@ validation_${i}/annotation.xml
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
                     <param name="weight_decay" value="0.02"/>
-                    <conditional name="optimizer_settings">
-                        <param name="optimizer" value="Adam"/>
-                        <conditional name="scheduler_settings">
-                            <param name="schedule" value="cosine"/>
-                            <param name="cos_max" value="2"/>
-                            <param name="cos_min_lr" value="0.00001"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="Adam"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="cosine"/>
+                                <param name="cos_max" value="2"/>
+                                <param name="cos_min_lr" value="0.00001"/>
+                            </conditional>
                         </conditional>
-                    </conditional>
+                    </section>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
@@ -614,14 +620,16 @@ validation_${i}/annotation.xml
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
                     <param name="weight_decay" value="0.02"/>
-                    <conditional name="optimizer_settings">
-                        <param name="optimizer" value="AdamW"/>
-                        <conditional name="scheduler_settings">
-                            <param name="schedule" value="reduceonplateau"/>
-                            <param name="gamma" value="0.5"/>
-                            <param name="sched_patience" value="2"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="AdamW"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="reduceonplateau"/>
+                                <param name="gamma" value="0.5"/>
+                                <param name="sched_patience" value="2"/>
+                            </conditional>
                         </conditional>
-                    </conditional>
+                    </section>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
@@ -694,15 +702,17 @@ validation_${i}/annotation.xml
                     <param name="lrate" value="0.002"/>
                     <param name="batch_size" value="1"/>
                     <param name="weight_decay" value="0.02"/>
-                    <conditional name="optimizer_settings">
-                        <param name="optimizer" value="RMSprop"/>
-                        <param name="momentum" value="0.8"/>
-                        <param name="warmup" value="12"/>
-                        <conditional name="scheduler_settings">
-                            <param name="schedule" value="exponential"/>
-                            <param name="gamma" value="0.5"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="RMSprop"/>
+                            <param name="momentum" value="0.8"/>
+                            <param name="warmup" value="12"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="exponential"/>
+                                <param name="gamma" value="0.5"/>
+                            </conditional>
                         </conditional>
-                    </conditional>
+                    </section>
                 </conditional>
                 <param name="freq" value="1"/>
                 <param name="augment" value="--no-augment"/>
@@ -1559,17 +1569,21 @@ validation_${i}/annotation.xml
                 <conditional name="arch">
                     <param name="recognition_arch" value="ppocrv6"/>
                     <param name="batch_size" value="1"/>
-                    <param name="max_width" value="2048"/>
+                    <section name="input_dimensions">
+                        <param name="max_width" value="2048"/>
+                    </section>
                     <conditional name="ppocrv6_variant">
                         <param name="variant" value="tiny"/>
                     </conditional>
-                    <conditional name="optimizer_settings">
-                        <param name="optimizer" value="Adam"/>
-                        <conditional name="scheduler_settings">
-                            <param name="schedule" value="reduceonplateau"/>
-                            <param name="sched_patience" value="2"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="Adam"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="reduceonplateau"/>
+                                <param name="sched_patience" value="2"/>
+                            </conditional>
                         </conditional>
-                    </conditional>
+                    </section>
                     <conditional name="stop_condition">
                         <param name="quit" value="fixed"/>
                         <param name="epochs" value="1"/>
@@ -1629,18 +1643,22 @@ validation_${i}/annotation.xml
                 <conditional name="arch">
                     <param name="recognition_arch" value="ppocrv6"/>
                     <param name="batch_size" value="1"/>
-                    <param name="max_width" value="2048"/>
+                    <section name="input_dimensions">
+                        <param name="max_width" value="2048"/>
+                    </section>
                     <conditional name="ppocrv6_variant">
                         <param name="variant" value="tiny"/>
                     </conditional>
-                    <conditional name="optimizer_settings">
-                        <param name="optimizer" value="Adam"/>
-                        <conditional name="scheduler_settings">
-                            <param name="schedule" value="reduceonplateau"/>
-                            <param name="sched_patience" value="2"/>
-                            <param name="gamma" value="0.5"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="Adam"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="reduceonplateau"/>
+                                <param name="sched_patience" value="2"/>
+                                <param name="gamma" value="0.5"/>
+                            </conditional>
                         </conditional>
-                    </conditional>
+                    </section>
                     <conditional name="stop_condition">
                         <param name="quit" value="fixed"/>
                         <param name="epochs" value="1"/>
