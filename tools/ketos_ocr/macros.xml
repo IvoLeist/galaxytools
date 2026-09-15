@@ -56,6 +56,7 @@
             --variant '$arch.ppocrv6_variant.variant'
             --lrate '$arch.ppocrv6_variant.lrate'
             --height '$arch.height'
+            --max-width '$arch.max_width'
             --batch-size '$arch.batch_size'
             --weight-decay '$arch.weight_decay'
             #set $optimizer = $arch.optimizer_settings
@@ -233,27 +234,44 @@
             <citation type="doi">10.16995/dscn.8094</citation>
         </citations>
     </xml>
+    <xml name="paired_ground_truth_input" tokens="pair_label,annotation_format,annotation_label">
+        <conditional name="input_source">
+            <param name="source" type="select" label="Input method">
+                <option value="repeat" selected="true">
+                    Select individual @PAIR_LABEL@ pairs
+                </option>
+                <option value="collection">
+                    List of paired datasets
+                </option>
+            </param>
+            <when value="repeat">
+                <repeat name="ground_truth_pairs" title="Ground-truth pair" min="1">
+                    <param name="image" type="data" format="jpg,png,tiff" label="Source image"/>
+                    <param name="annotation" type="data" format="@ANNOTATION_FORMAT@" label="@ANNOTATION_LABEL@"/>
+                </repeat>
+            </when>
+            <when value="collection">
+                <param name="ground_truth_collection" type="data_collection" collection_type="list:paired" format="jpg,png,tiff,@ANNOTATION_FORMAT@" label="@PAIR_LABEL@ pairs" help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription."/>
+            </when>
+        </conditional>
+    </xml>
+    <xml name="recognition_validation">
+        <conditional name="validation">
+            <param name="validation_source" type="select" label="Validation data source">
+                <option value="training_data_split" selected="true">Data split from training data</option>
+                <option value="explicit">Explicit validation data</option>
+            </param>
+            <when value="training_data_split">
+                <param name="partition" type="float" value="0.9" min="0" max="1" label="Training data fraction" help="Fraction of the provided ground-truth samples used for training. The remaining samples are used for validation."/>
+            </when>
+            <when value="explicit">
+                <yield/>
+            </when>
+        </conditional>
+    </xml>
     <xml name="compile_training_data_input" tokens="format_type,pair_label,annotation_format,annotation_label">
         <when value="@FORMAT_TYPE@">
-            <conditional name="input_source">
-                <param name="source" type="select" label="Input method">
-                    <option value="repeat" selected="true">
-                        Select individual @PAIR_LABEL@ pairs
-                    </option>
-                    <option value="collection">
-                        List of paired datasets
-                    </option>
-                </param>
-                <when value="repeat">
-                    <repeat name="ground_truth_pairs" title="Ground-truth pair" min="1">
-                        <param name="image" type="data" format="jpg,png,tiff" label="Source image"/>
-                        <param name="annotation" type="data" format="@ANNOTATION_FORMAT@" label="@ANNOTATION_LABEL@"/>
-                    </repeat>
-                </when>
-                <when value="collection">
-                    <param name="ground_truth_collection" type="data_collection" collection_type="list:paired" format="jpg,png,tiff,@ANNOTATION_FORMAT@" label="@PAIR_LABEL@ pairs" help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription."/>
-                </when>
-            </conditional>
+            <expand macro="paired_ground_truth_input" pair_label="@PAIR_LABEL@" annotation_format="@ANNOTATION_FORMAT@" annotation_label="@ANNOTATION_LABEL@"/>
             <yield/>
         </when>
     </xml>
@@ -423,6 +441,7 @@
                     </when>
                 </conditional>
                 <param argument="--height" type="integer" min="1" value="96" label="Input line height"/>
+                <param argument="--max-width" type="integer" min="1" value="2560" label="Maximum line width" help="Maximum line width in pixels after height normalization."/>
                 <conditional name="optimizer_settings">
                     <param argument="--optimizer" type="select" label="Optimizer">
                         <option value="Adam">Adam</option>
