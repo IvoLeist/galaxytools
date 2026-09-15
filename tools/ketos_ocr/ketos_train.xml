@@ -1864,6 +1864,109 @@ validation_${i}/annotation.xml
             </output>
             <output_collection name="checkpoints" type="list" count="1"/>
         </test>
+        <!-- Kraken 7.1.1 regression: Muon/cosine requires a finite training duration. -->
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="ppocrv6"/>
+                    <conditional name="ppocrv6_variant">
+                        <param name="variant" value="tiny"/>
+                    </conditional>
+                    <section name="input_dimensions">
+                        <param name="max_width" value="2048"/>
+                    </section>
+                    <param name="batch_size" value="1"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="AdamW+Muon"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="cosine"/>
+                            </conditional>
+                        </conditional>
+                    </section>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="early"/>
+                        </conditional>
+                    </section>
+                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="--arch 'ppocrv6'"/>
+                <has_text text="--optimizer 'AdamW+Muon'"/>
+                <has_text text="--schedule 'cosine'"/>
+                <has_text text="--quit 'early'"/>
+                <not_has_text text="--epochs"/>
+            </assert_command>
+            <!-- The captured traceback is printed to stdout by the wrapper. -->
+            <assert_stdout>
+                <has_text text="OverflowError: cannot convert float infinity to integer"/>
+                <not_has_text text="Converting best model"/>
+            </assert_stdout>
+        </test>
+        <!-- Kraken 7.1.1 regression: 1cycle requires an epoch count, absent with early stopping. -->
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="training_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                </conditional>
+                <conditional name="arch">
+                    <param name="recognition_arch" value="vgsl"/>
+                    <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    <param name="batch_size" value="1"/>
+                    <section name="optimization">
+                        <conditional name="optimizer_settings">
+                            <param name="optimizer" value="AdamW"/>
+                            <conditional name="scheduler_settings">
+                                <param name="schedule" value="1cycle"/>
+                            </conditional>
+                        </conditional>
+                    </section>
+                    <section name="stopping">
+                        <conditional name="stop_condition">
+                            <param name="quit" value="early"/>
+                        </conditional>
+                    </section>
+                </conditional>
+                <section name="image_preprocessing">
+                    <param name="augment" value="--no-augment"/>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="--arch 'vgsl'"/>
+                <has_text text="--optimizer 'AdamW'"/>
+                <has_text text="--schedule '1cycle'"/>
+                <has_text text="--quit 'early'"/>
+                <not_has_text text="--epochs"/>
+            </assert_command>
+            <!-- The captured traceback is printed to stdout by the wrapper. -->
+            <assert_stdout>
+                <has_text text="ValueError: 1cycle learning rate scheduler selected but number of epochs is less than 0 (-1)."/>
+                <not_has_text text="Converting best model"/>
+            </assert_stdout>
+        </test>
     </tests>
     <help format="markdown">
 Trains a Kraken recognition model from line-image or XML/ALTO/PageXML training data. Ketos writes checkpoints during training and converts the best checkpoint to a weights file at the end. TensorBoard logging is always enabled. Download the logger files collection to visualize training metrics locally with TensorBoard.
