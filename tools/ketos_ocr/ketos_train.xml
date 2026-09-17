@@ -7,6 +7,11 @@
     <expand macro="requirements">
         <requirement type="package" version="4.1.2">yq</requirement>
         <requirement type="package" version="2.20.0">tensorboard</requirement>
+        <!-- TODO: try a more lightweight tensorboard alternative as soon 
+                    this issue is resolved: 
+                    https://github.com/conda-forge/tensorboard-feedstock/pull/94  
+        -->
+        <!-- <requirement type="package" version="2.6.2.2">tensorboardx</requirement> -->
         <!-- below only available when using a NVIDIA GPU 
             required for numerical precision options: transformer-engine, transformer-engine-float16 
         -->
