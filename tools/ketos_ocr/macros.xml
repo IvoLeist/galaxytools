@@ -732,10 +732,9 @@
         <collection name="checkpoints" type="list" label="${tool.name} on ${on_string}: checkpoints">
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.ckpt" directory="model" format="binary"/>
         </collection>
-        <!-- TODO in the galaxy core register tfevents as a new data type -->
         <collection name="logs" type="list" label="${tool.name} on ${on_string}: logger files">
             <discover_datasets pattern="(?P&lt;designation&gt;.+\.ya?ml)$" directory="logs" format="yaml" recurse="true" match_relative_path="true"/>
-            <discover_datasets pattern="(?P&lt;designation&gt;(?!.*\.ya?ml$).+)" directory="logs" format="binary" recurse="true" match_relative_path="true"/>
+            <discover_datasets pattern="(?P&lt;designation&gt;(?!.*\.ya?ml$).+)" directory="logs" format="tfevents" recurse="true" match_relative_path="true"/>
         </collection>
     </xml>
 </macros>
