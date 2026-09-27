@@ -126,3 +126,22 @@ The Kraken environment must also contain TensorBoard. Without
 Label 0 is reserved for CTC blank. The extra character makes this codec differ
 from the inferred training alphabet and the loaded model codec. It exercises
 explicit JSON codecs for new VGSL training and loading with `resize=new`.
+
+## Recognition evaluation
+
+`ketos_test.xml` reuses the recognition weights and Arrow datasets above, the
+line image/transcription pair, and the ALTO/PAGE image pairs. Its tests cover
+single and multiple Arrow inputs, manual and collection pairs for each raw
+format, evaluation options, and loading a checkpoint. The invalid model and
+multi-page TIFF fixtures exercise failure handling. Report assertions check
+that recognition metrics are produced; these smoke-test models are not expected
+to achieve useful accuracy.
+
+Run the Galaxy integration tests with:
+
+```sh
+planemo test ketos_test.xml
+```
+
+The declared dependencies include `yq`, whose `xq` command updates XML image
+references to the staged image names.

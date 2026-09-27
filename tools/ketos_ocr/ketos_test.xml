@@ -1,0 +1,575 @@
+<tool id="ketos_test" name="Ketos Test" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>evaluate OCR recognition accuracy against ground truth</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements">
+        <requirement type="package" version="4.1.2">yq</requirement>
+    </expand>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        export TORCHDYNAMO_DISABLE="\${TORCHDYNAMO_DISABLE:-1}" &&
+        export TORCHINDUCTOR_CACHE_DIR="\${TORCHINDUCTOR_CACHE_DIR:-\$_GALAXY_JOB_TMP_DIR}" &&
+        KETOS_DEVICE="\${KETOS_DEVICE:-cpu}" &&
+        KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
+        KETOS_THREADS="\${KETOS_THREADS:-1}" &&
+
+        #if $model_input.model_type == 'checkpoint'
+            ln -s '$model_input.model' model.ckpt &&
+            #set $model_path = 'model.ckpt'
+        #else
+            #set $model_path = str($model_input.model)
+        #end if
+
+        #if $test_data.format_type != 'binary'
+            #set $input_source = $test_data.input_source
+
+            #if $input_source.source == 'repeat'
+                #set $pairs = $input_source.ground_truth_pairs
+            #else
+                #set $pairs = $input_source.ground_truth_collection
+            #end if
+
+            #set $image_filename_jq_paths = {
+                'alto': '.alto.Description.sourceImageInformation.fileName',
+                'page': '.PcGts.Page."@imageFilename"'
+            }
+
+            #for $i, $pair in enumerate($pairs)
+                #if $input_source.source == 'repeat'
+                    #set $image = $pair.image
+                    #set $annotation = $pair.annotation
+                #else
+                    #set $image = $pair.forward
+                    #set $annotation = $pair.reverse
+                #end if
+
+                @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
+
+                #if $test_data.format_type == 'path'
+                    ln -s '$image' 'ground_truth_${i}.${image.ext}' &&
+                    ln -s '$annotation' 'ground_truth_${i}.gt.txt' &&
+                #else
+                    #set $image_filename = 'input.' + str($image.ext)
+
+                    mkdir -p 'ground_truth_${i}' &&
+                    ln -s '$image' 'ground_truth_${i}/${image_filename}' &&
+
+                    #set $image_filename_jq_path = $image_filename_jq_paths[str($test_data.format_type)]
+                    xq -x --arg filename '$image_filename'
+                        '$image_filename_jq_path = \$filename'
+                        '$annotation'
+                        > 'ground_truth_${i}/annotation.xml' &&
+                #end if
+            #end for
+
+        #end if
+
+        ketos
+            --device "\$KETOS_DEVICE"
+            --workers "\$KETOS_WORKERS"
+            --threads "\$KETOS_THREADS"
+            test
+            --model '$model_path'
+            --format-type '$test_data.format_type'
+            #if $options.arch != 'auto'
+                --arch '$options.arch'
+            #end if
+            #if str($options.batch_size) not in ('', 'None')
+                --batch-size '$options.batch_size'
+            #end if
+            #if str($options.pad) not in ('', 'None')
+                --pad '$options.pad'
+            #end if
+            #if $options.linetype != 'auto'
+                --linetype '$options.linetype'
+            #end if
+            #if $options.normalization != 'None'
+                --normalization '$options.normalization'
+            #end if
+            #if $options.normalize_whitespace != 'auto'
+                $options.normalize_whitespace
+            #end if
+            #if $options.bidi.reorder == 'yes'
+                --reorder --base-dir '$options.bidi.base_dir'
+            #elif $options.bidi.reorder == 'no'
+                --no-reorder
+            #end if
+            $options.no_legacy_polygons
+            #if $test_data.format_type == 'binary'
+                #for $dataset in $test_data.ground_truth
+                    '$dataset'
+                #end for
+            #else
+                #for $i, $pair in enumerate($pairs)
+                    #if $test_data.format_type == 'path'
+                        #if $input_source.source == 'repeat'
+                            #set $image = $pair.image
+                        #else
+                            #set $image = $pair.forward
+                        #end if
+                        'ground_truth_${i}.${image.ext}'
+                    #else
+                        'ground_truth_${i}/annotation.xml'
+                    #end if
+                #end for
+            #end if
+            > '$report'
+    ]]></command>
+    <expand macro="env_vars"/>
+    <inputs>
+        <conditional name="model_input">
+            <param name="model_type" type="select" label="Model format">
+                <option value="weights" selected="true">Model weights (Safetensors or CoreML)</option>
+                <option value="checkpoint">Training checkpoint</option>
+            </param>
+            <when value="weights">
+                <param name="model" type="data" format="binary,safetensors" label="Recognition model"/>
+            </when>
+            <when value="checkpoint">
+                <param name="model" type="data" format="binary" label="Recognition checkpoint" help="Use a checkpoint produced by Ketos Train. Upload checkpoints as binary data so Galaxy preserves the file intact."/>
+            </when>
+        </conditional>
+        <conditional name="test_data">
+            <param name="format_type" type="select" label="Test data format">
+                <option value="binary" selected="true">Compiled Arrow datasets</option>
+                <option value="path">Line image/transcription pairs</option>
+                <option value="alto">ALTO</option>
+                <option value="page">PAGE XML</option>
+            </param>
+            <when value="binary">
+                <param name="ground_truth" type="data" format="arrow" multiple="true" label="Test datasets"/>
+            </when>
+            <when value="path">
+                <expand macro="paired_ground_truth_input" pair_label="line image/transcription" annotation_format="txt" annotation_label="Ground-truth transcription"/>
+            </when>
+            <when value="alto">
+                <expand macro="paired_ground_truth_input" pair_label="page image/ALTO" annotation_format="alto" annotation_label="ALTO annotation"/>
+            </when>
+            <when value="page">
+                <expand macro="paired_ground_truth_input" pair_label="page image/PAGE" annotation_format="page.xml" annotation_label="PAGE annotation"/>
+            </when>
+        </conditional>
+        <section name="options" title="Evaluation options" expanded="false">
+            <param name="arch" type="select" label="Recognition architecture" help="Usually detected from the model. Set explicitly only for models without architecture metadata.">
+                <option value="auto" selected="true">Automatic</option>
+                <option value="vgsl">VGSL</option>
+                <option value="ppocrv6">PPOCRv6</option>
+            </param>
+            <param argument="--batch-size" type="integer" min="1" optional="true" label="Batch size" help="Leave empty to use Kraken's default."/>
+            <param argument="--pad" type="integer" min="0" optional="true" label="Line padding" help="Padding in pixels at each end of a line. Leave empty to use Kraken's default."/>
+            <param argument="--linetype" type="select" label="Line type">
+                <option value="auto" selected="true">Automatic (model or dataset default)</option>
+                <option value="baselines">Baselines</option>
+                <option value="bbox">Bounding boxes</option>
+            </param>
+            <param argument="--normalization" type="select" label="Unicode normalization">
+                <option value="None" selected="true">None</option>
+                <option value="NFC">NFC</option>
+                <option value="NFD">NFD</option>
+                <option value="NFKC">NFKC</option>
+                <option value="NFKD">NFKD</option>
+            </param>
+            <param name="normalize_whitespace" type="select" label="Normalize Unicode whitespace">
+                <option value="auto" selected="true">Kraken default</option>
+                <option value="--normalize-whitespace">Yes</option>
+                <option value="--no-normalize-whitespace">No</option>
+            </param>
+            <conditional name="bidi">
+                <param name="reorder" type="select" label="Bidirectional text reordering">
+                    <option value="auto" selected="true">Kraken default</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </param>
+                <when value="auto"/>
+                <when value="no"/>
+                <when value="yes">
+                    <param argument="--base-dir" type="select" label="Base text direction">
+                        <option value="auto" selected="true">Use direction from input data</option>
+                        <option value="L">Left-to-right</option>
+                        <option value="R">Right-to-left</option>
+                    </param>
+                </when>
+            </conditional>
+            <param name="no_legacy_polygons" type="boolean" checked="false" truevalue="--no-legacy-polygons" falsevalue="" label="Disable legacy polygon extraction" help="By default, use the extraction method recorded in the model."/>
+        </section>
+    </inputs>
+    <outputs>
+        <data name="report" format="txt" label="${tool.name} on ${on_string}: recognition accuracy"/>
+    </outputs>
+    <tests>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_validation_1.arrow,ketos_train_validation_2.arrow" ftype="arrow"/>
+            </conditional>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="path"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="compile_input_line.png" ftype="png"/>
+                        <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="path"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="pair_1">
+                                <collection type="paired">
+                                    <element name="forward" value="compile_input_line.png" ftype="png"/>
+                                    <element name="reverse" value="compile_input_line.gt.txt" ftype="txt"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="arch" value="vgsl"/>
+                <param name="batch_size" value="1"/>
+                <param name="pad" value="16"/>
+                <param name="linetype" value="bbox"/>
+                <param name="normalization" value="NFKC"/>
+                <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
+                <param name="no_legacy_polygons" value="true"/>
+                <conditional name="bidi">
+                    <param name="reorder" value="no"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="--no-reorder"/>
+                <has_text text="--no-normalize-whitespace"/>
+                <has_text text="--no-legacy-polygons"/>
+                <has_text text="--normalization 'NFKC'"/>
+            </assert_command>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="alto"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="alto"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="pair_1">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="arch" value="vgsl"/>
+                <param name="batch_size" value="1"/>
+                <param name="pad" value="16"/>
+                <param name="linetype" value="bbox"/>
+                <param name="normalization" value="NFKC"/>
+                <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
+                <param name="no_legacy_polygons" value="true"/>
+                <conditional name="bidi">
+                    <param name="reorder" value="no"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="--no-reorder"/>
+                <has_text text="--no-normalize-whitespace"/>
+                <has_text text="--no-legacy-polygons"/>
+                <has_text text="--normalization 'NFKC'"/>
+            </assert_command>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="pair_1">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="arch" value="vgsl"/>
+                <param name="batch_size" value="1"/>
+                <param name="pad" value="16"/>
+                <param name="linetype" value="bbox"/>
+                <param name="normalization" value="NFKC"/>
+                <param name="normalize_whitespace" value="--no-normalize-whitespace"/>
+                <param name="no_legacy_polygons" value="true"/>
+                <conditional name="bidi">
+                    <param name="reorder" value="no"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="--no-reorder"/>
+                <has_text text="--no-normalize-whitespace"/>
+                <has_text text="--no-legacy-polygons"/>
+                <has_text text="--normalization 'NFKC'"/>
+            </assert_command>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test>
+            <conditional name="model_input">
+                <param name="model_type" value="checkpoint"/>
+                <param name="model" value="ketos_train_resume.ckpt" ftype="zip"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="path"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="compile_input_line.png" ftype="png"/>
+                        <param name="annotation" value="compile_input_line.gt.txt" ftype="txt"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <section name="options">
+                <param name="normalize_whitespace" value="--normalize-whitespace"/>
+                <conditional name="bidi">
+                    <param name="reorder" value="yes"/>
+                    <param name="base_dir" value="L"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="--model 'model.ckpt'"/>
+                <has_text text="--reorder --base-dir 'L'"/>
+            </assert_command>
+            <output name="report">
+                <assert_contents>
+                    <has_text text="Characters"/>
+                    <has_text text="Character Accuracy"/>
+                    <has_text text="Word Accuracy"/>
+                    <has_text text="Insertions"/>
+                    <has_text text="Deletions"/>
+                    <has_text text="Substitutions"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_failure="true">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="invalid_model.bin" ftype="binary"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="binary"/>
+                <param name="ground_truth" value="ketos_train_recognition.arrow" ftype="arrow"/>
+            </conditional>
+
+        </test>
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_train_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="alto"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_2pages.tiff" ftype="tiff"/>
+                        <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+
+            <assert_stderr>
+                <has_text text="Multi-page TIF(F) training images are not supported. Detected 2 pages."/>
+            </assert_stderr>
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+## What it does
+
+Evaluates one Kraken recognition model against transcribed test data using
+`ketos test`. Use held-out data that was not used for training or model selection
+when estimating recognition quality.
+
+## Inputs
+
+- Model weights from Ketos Train (Safetensors or CoreML), or a training checkpoint.
+- One or more Arrow datasets produced by Ketos Compile; or image/ground-truth
+  pairs in line/transcription, ALTO, or PAGE XML format.
+
+Pairs can be selected individually or supplied as a `list:paired` collection.
+The forward element is the image; the reverse element is the transcription or
+XML annotation. Each XML annotation must describe its paired image. The tool
+updates the image reference for the job. Multi-page TIFF images must be split
+into single-page images first.
+
+## Output and options
+
+The text output contains Kraken's evaluation log and accuracy report, including
+character accuracy, case-insensitive character accuracy, word accuracy,
+insertions, deletions, substitutions, and character confusions.
+
+Architecture is detected from the model by default. Match text direction and
+normalization to the conventions used for your ground truth. Optional batch
+size, padding, and line type override Kraken's defaults. Legacy polygon
+extraction follows the model unless explicitly disabled.
+
+Kraken is licensed under the Apache-2.0 license.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>
