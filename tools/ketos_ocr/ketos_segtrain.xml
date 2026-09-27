@@ -1,0 +1,901 @@
+<tool id="ketos_segtrain" name="Ketos Segtrain" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>train or fine-tune baseline and region segmentation models</description>
+    <macros>
+        <import>macros.xml</import>
+        <xml name="segmentation_data" tokens="format_type,annotation_format,annotation_label">
+            <when value="@FORMAT_TYPE@">
+                <expand macro="paired_ground_truth_input" pair_label="page image/annotation" annotation_format="@ANNOTATION_FORMAT@" annotation_label="@ANNOTATION_LABEL@"/>
+                <conditional name="validation">
+                    <param name="validation_source" type="select" label="Validation data source">
+                        <option value="training_data_split" selected="true">Data split from training data</option>
+                        <option value="explicit">Explicit validation data</option>
+                    </param>
+                    <when value="training_data_split">
+                        <param name="partition" type="float" value="0.9" min="0" max="1" label="Training data fraction" help="Splits whole pages, so provide enough pages for both training and validation.">
+                            <validator type="in_range" min="0" max="1" exclude_min="true" exclude_max="true"/>
+                        </param>
+                    </when>
+                    <when value="explicit">
+                        <expand macro="paired_ground_truth_input" pair_label="validation page image/annotation" annotation_format="@ANNOTATION_FORMAT@" annotation_label="@ANNOTATION_LABEL@"/>
+                    </when>
+                </conditional>
+            </when>
+        </xml>
+    </macros>
+    <expand macro="requirements">
+        <requirement type="package" version="4.1.2">yq</requirement>
+        <requirement type="package" version="2.20.0">tensorboard</requirement>
+    </expand>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        ## Disable PyTorch compilation by default; set TORCHDYNAMO_DISABLE=0 to enable it.
+        export TORCHDYNAMO_DISABLE="\${TORCHDYNAMO_DISABLE:-1}" &&
+        export TORCHINDUCTOR_CACHE_DIR="\${TORCHINDUCTOR_CACHE_DIR:-\$_GALAXY_JOB_TMP_DIR}" &&
+        KETOS_DEVICE="\${KETOS_DEVICE:-cpu}" &&
+        KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
+        KETOS_THREADS="\${KETOS_THREADS:-1}" &&
+
+        #set $stage_input_source = $training_data.input_source
+        #set $stage_format = $training_data.format_type
+        #set $stage_prefix = 'ground_truth'
+        @STAGE_RECOGNITION_GROUND_TRUTH@
+        #set $ground_truth_paths = $stage_paths
+        #if $training_data.validation.validation_source == 'explicit'
+            #set $stage_input_source = $training_data.validation.input_source
+            #set $stage_prefix = 'validation'
+            @STAGE_RECOGNITION_GROUND_TRUTH@
+        #end if
+
+        @STAGE_INITIAL_MODEL@
+        ## Kraken's fresh checkpoint loading replaces the saved configuration.
+        ## Preserve the saved network shape instead of using the default VGSL spec.
+        #if $train_opts.initialization.source == 'load' and $train_opts.initialization.model_type == 'checkpoint'
+            checkpoint_spec=\$(python -c 'from kraken.models.convert import load_checkpoint_config; print(load_checkpoint_config("initial_model.ckpt").spec)') &&
+        #end if
+        mkdir -p model logs &&
+
+        ketos_exit_code=0 &&
+
+        ketos
+            #if $train_opts.class_mapping.mode == 'custom' and $train_opts.initialization.source != 'resume'
+                --config '$class_mapping_config'
+            #end if
+            --device "\$KETOS_DEVICE"
+            --workers "\$KETOS_WORKERS"
+            --threads "\$KETOS_THREADS"
+            #if str($global_opts.precision.dtype) in ('16', 'bf16'):
+                --precision '${global_opts.precision.dtype}-${global_opts.precision.mode}'
+            #elif str($global_opts.precision.dtype) in ('32', '64'):
+                --precision '${global_opts.precision.dtype}-true'
+            #else:
+                --precision '${global_opts.precision.dtype}'
+            #end if
+
+            $global_opts.deterministic.mode
+            #if $global_opts.deterministic.mode == '--deterministic'
+                --seed '$global_opts.deterministic.seed'
+            #end if
+            segtrain
+            --output model
+            #set $weights_format = $train_opts.weights_format
+            --weights-format '$weights_format'
+            #if $train_opts.initialization.source == 'new'
+                #if str($train_opts.initialization.spec).strip() and str($train_opts.initialization.spec) != 'None'
+                    --spec '$train_opts.initialization.spec'
+                #end if
+            #elif $train_opts.initialization.source == 'load'
+                #if $train_opts.initialization.model_type == 'checkpoint'
+                    --load 'initial_model.ckpt'
+                    --spec "\$checkpoint_spec"
+                #else
+                    --load '$train_opts.initialization.model'
+                #end if
+                --resize '$train_opts.initialization.resize'
+            #else
+                --resume '$train_opts.initialization.checkpoint'
+            #end if
+            --format-type '$training_data.format_type'
+            #if $training_data.validation.validation_source == 'training_data_split'
+                --partition '$training_data.validation.partition'
+            #else
+                --evaluation-data '$evaluation_manifest'
+            #end if
+            --quit '$train_opts.stopping.stop_condition.quit'
+            #if $train_opts.stopping.stop_condition.quit == 'early'
+                --min-epochs '$train_opts.stopping.stop_condition.min_epochs'
+                --lag '$train_opts.stopping.stop_condition.lag'
+                --min-delta '$train_opts.stopping.stop_condition.min_delta'
+            #else
+                --epochs '$train_opts.stopping.stop_condition.epochs'
+            #end if
+            --freq '$train_opts.stopping.freq'
+            #if str($train_opts.lrate).strip() and str($train_opts.lrate) != 'None'
+                --lrate '$train_opts.lrate'
+            #end if
+            #if str($train_opts.optimization.weight_decay).strip() and str($train_opts.optimization.weight_decay) != 'None'
+                --weight-decay '$train_opts.optimization.weight_decay'
+            #end if
+            #set $optimizer = $train_opts.optimization.optimizer_settings
+            #if $optimizer.optimizer != 'auto'
+                --optimizer '$optimizer.optimizer'
+                #if str($optimizer.warmup).strip() and str($optimizer.warmup) != 'None'
+                    --warmup '$optimizer.warmup'
+                #end if
+                #if $optimizer.optimizer in ('SGD', 'RMSprop')
+                    #if str($optimizer.momentum).strip() and str($optimizer.momentum) != 'None'
+                        --momentum '$optimizer.momentum'
+                    #end if
+                #end if
+                #set $scheduler = $optimizer.scheduler_settings
+                #if $scheduler.schedule != 'auto'
+                    --schedule '$scheduler.schedule'
+                #end if
+                #if $scheduler.schedule == 'cosine'
+                    --cos-min-lr '$scheduler.cos_min_lr'
+                    --cos-max '$scheduler.cos_max'
+                #elif $scheduler.schedule == 'exponential'
+                    --gamma '$scheduler.gamma'
+                #elif $scheduler.schedule == 'step'
+                    --step-size '$scheduler.step_size'
+                    --gamma '$scheduler.gamma'
+                #elif $scheduler.schedule == 'reduceonplateau'
+                    --gamma '$scheduler.gamma'
+                    --sched-patience '$scheduler.sched_patience'
+                #end if
+            #end if
+            --gradient-clip-val '$train_opts.gradient_clip_val'
+            --accumulate-grad-batches '$train_opts.accumulate_grad_batches'
+            --line-width '$train_opts.segmentation.line_width'
+            --bl-tol '$train_opts.segmentation.bl_tol'
+            --pad '$train_opts.segmentation.pad_horizontal' '$train_opts.segmentation.pad_vertical'
+            --dice-weight '$train_opts.segmentation.dice_weight'
+            $train_opts.segmentation.line_location
+            $train_opts.segmentation.augment
+            --logger tensorboard
+            --log-dir logs
+            #for $path in $ground_truth_paths
+                '$path'
+            #end for
+            > training_report.txt 2>&1 || ketos_exit_code=\$?;
+
+        cat training_report.txt;
+        [ "\$ketos_exit_code" -eq 0 ] || exit "\$ketos_exit_code";
+
+        @CAPTURE_TRAINING_OUTPUTS@
+    ]]></command>
+    <expand macro="env_vars"/>
+    <configfiles>
+        <!-- Kraken treats manifest whitespace literally; emit only staged paths. -->
+        <configfile name="evaluation_manifest"><![CDATA[#if $training_data.validation.validation_source == 'explicit'
+#set $source = $training_data.validation.input_source
+#if $source.source == 'repeat'
+#set $pairs = $source.ground_truth_pairs
+#else
+#set $pairs = $source.ground_truth_collection
+#end if
+#for $i, $pair in enumerate($pairs)
+validation_${i}/annotation.xml
+#end for
+#end if
+]]></configfile>
+        <configfile name="class_mapping_config"><![CDATA[#import json
+#set $config = {}
+#if $train_opts.class_mapping.mode == 'custom' and $train_opts.initialization.source != 'resume'
+#set $lines = [[str($entry.class_name), int($entry.label)] for $entry in $train_opts.class_mapping.line_class_mapping]
+#set $regions = [[str($entry.class_name), int($entry.label)] for $entry in $train_opts.class_mapping.region_class_mapping]
+#set $config = {'segtrain': {'line_class_mapping': $lines, 'region_class_mapping': $regions}}
+#end if
+$json.dumps($config, ensure_ascii=True)
+]]></configfile>
+    </configfiles>
+    <inputs>
+        <conditional name="training_data">
+            <param argument="--format-type" type="select" label="Ground-truth data format" help="Format used for training and validation annotations.">
+                <option value="page" selected="true">PAGE XML</option>
+                <option value="alto">ALTO</option>
+                <option value="xml">Automatically detect ALTO or PAGE XML (including mixed inputs)</option>
+            </param>
+            <expand macro="segmentation_data" format_type="page" annotation_format="page.xml" annotation_label="PAGE annotation"/>
+            <expand macro="segmentation_data" format_type="alto" annotation_format="alto" annotation_label="ALTO annotation"/>
+            <expand macro="segmentation_data" format_type="xml" annotation_format="xml" annotation_label="ALTO or PAGE annotation"/>
+        </conditional>
+        <section name="train_opts" title="Training options" expanded="true">
+            <conditional name="initialization">
+                <param name="source" type="select" label="Initialization">
+                    <option value="new" selected="true">Train a new model</option>
+                    <option value="load">Load existing weights/checkpoint for a fresh run</option>
+                    <option value="resume">Resume a checkpointed run</option>
+                </param>
+                <when value="new">
+                    <param argument="--spec" type="text" value="" optional="true" label="VGSL network specification" help="Leave empty to use Kraken's default segmentation network. A custom specification must preserve both spatial dimensions; Kraken adds the output layer.">
+                        <sanitizer>
+                            <valid initial="string.printable"><remove value="&apos;"/><remove value="&quot;"/><remove value="`"/></valid>
+                        </sanitizer>
+                    </param>
+                </when>
+                <when value="load">
+                    <param name="model_type" type="select" label="Model file type">
+                        <option value="weights" selected="true">Weights (Safetensors or CoreML)</option>
+                        <option value="checkpoint">Checkpoint (.ckpt)</option>
+                    </param>
+                    <param name="model" type="data" format="binary,safetensors" label="Segmentation model or checkpoint"/>
+                    <param argument="--resize" type="select" label="Output class resizing">
+                        <option value="fail" selected="true">Fail if model and training classes differ</option>
+                        <option value="union">Add new classes to the model</option>
+                        <option value="new">Replace classes with the training data classes</option>
+                    </param>
+                </when>
+                <when value="resume">
+                    <param name="checkpoint" type="data" format="binary" label="Checkpoint to resume" help="Use a checkpoint from this tool with the same input pairs in the same order and the same validation setup. Kraken restores its saved data configuration. Match the training options to the original run; the form does not populate them from the checkpoint. Epochs is the total target, including completed epochs."/>
+                </when>
+            </conditional>
+            <conditional name="class_mapping">
+                <param name="mode" type="select" label="Baseline and region class mappings" help="Resuming a checkpoint restores its saved mappings and ignores these settings. To change classes, load a model for a fresh run.">
+                    <option value="auto" selected="true">Assign labels automatically from annotations</option>
+                    <option value="custom">Set class labels explicitly</option>
+                </param>
+                <when value="auto"/>
+                <when value="custom">
+                    <repeat name="line_class_mapping" title="Baseline class mapping" min="0" help="Map annotation line types to output labels. Leave empty to disable baseline training. Reuse a label to merge line types; use * as the fallback for unlisted types.">
+                        <param name="class_name" type="text" label="Baseline class name">
+                            <validator type="empty_field"/>
+                            <sanitizer sanitize="false"/>
+                        </param>
+                        <param name="label" type="integer" min="2" value="2" label="Output label" help="Labels 0 and 1 are reserved. Baseline labels must not overlap region labels."/>
+                    </repeat>
+                    <repeat name="region_class_mapping" title="Region class mapping" min="0" help="Map annotation region types to output labels. Leave empty to disable region training. Reuse a label to merge region types; use * as the fallback for unlisted types. Unlisted types are ignored without a fallback.">
+                        <param name="class_name" type="text" label="Region class name">
+                            <validator type="empty_field"/>
+                            <sanitizer sanitize="false"/>
+                        </param>
+                        <param name="label" type="integer" min="2" value="3" label="Output label" help="Labels 0 and 1 are reserved. Region labels must not overlap baseline labels."/>
+                    </repeat>
+                </when>
+            </conditional>
+            <param argument="--weights-format" type="select" label="Exported model format">
+                <option value="safetensors" selected="true">Safetensors</option>
+                <option value="coreml">CoreML</option>
+            </param>
+            <param argument="--lrate" type="float" min="0" optional="true" label="Learning rate" help="Leave empty to use Kraken's default (0.0002 for a new model)."/>
+            <expand macro="recognition_common_training_controls"/>
+            <expand macro="stop_condition" early_selected="false" fixed_selected="true"/>
+            <param argument="--gradient-clip-val" type="float" min="0" value="1.0" label="Gradient clipping threshold"/>
+            <param argument="--accumulate-grad-batches" type="integer" min="1" value="1" label="Gradient accumulation batches"/>
+            <section name="segmentation" title="Segmentation and image options" expanded="false">
+                <param argument="--line-width" type="integer" min="1" value="8" label="Baseline width" help="Height of each baseline in the target segmentation map after scaling, in pixels."/>
+                <param argument="--bl-tol" type="float" min="0" value="10.0" label="Baseline detection tolerance (pixels)"/>
+                <param name="pad_horizontal" type="integer" min="0" value="0" label="Left and right image padding (pixels)"/>
+                <param name="pad_vertical" type="integer" min="0" value="0" label="Top and bottom image padding (pixels)"/>
+                <param argument="--dice-weight" type="float" min="0" value="0.5" label="Dice loss weight" help="Set to zero to disable Dice loss."/>
+                <param name="line_location" type="select" label="Annotated line location">
+                    <option value="--baseline" selected="true">Baseline</option>
+                    <option value="--topline">Topline (hanging baseline)</option>
+                    <option value="--centerline">Centerline</option>
+                </param>
+                <param argument="--augment" type="boolean" truevalue="--augment" falsevalue="--no-augment" checked="false" label="Augment training images"/>
+            </section>
+        </section>
+        <expand macro="ketos_training_options"/>
+    </inputs>
+    <outputs>
+        <expand macro="training_outputs"/>
+    </outputs>
+    <tests>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.5"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                    <param name="spec" value="[1,240,0,1 Cr3,3,8]"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--partition '0.5'"/>
+                <not_has_text text="--evaluation-data"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="alto"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="page_0">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="explicit"/>
+                    <conditional name="input_source">
+                        <param name="source" value="collection"/>
+                        <param name="ground_truth_collection">
+                            <collection type="list:paired">
+                                <element name="page_0">
+                                    <collection type="paired">
+                                        <element name="forward" value="input_binarized.png" ftype="png"/>
+                                        <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                                    </collection>
+                                </element>
+                            </collection>
+                        </param>
+                    </conditional>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                    <param name="spec" value="[1,240,0,1 Cr3,3,8]"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+                <section name="segmentation">
+                    <param name="line_width" value="4"/>
+                    <param name="bl_tol" value="5"/>
+                    <param name="pad_horizontal" value="2"/>
+                    <param name="pad_vertical" value="3"/>
+                    <param name="dice_weight" value="0"/>
+                    <param name="line_location" value="--topline"/>
+                </section>
+                <section name="optimization">
+                    <param name="weight_decay" value="0.0001"/>
+                    <conditional name="optimizer_settings">
+                        <param name="optimizer" value="SGD"/>
+                        <param name="momentum" value="0.8"/>
+                        <param name="warmup" value="0"/>
+                        <conditional name="scheduler_settings">
+                            <param name="schedule" value="step"/>
+                            <param name="step_size" value="2"/>
+                            <param name="gamma" value="0.5"/>
+                        </conditional>
+                    </conditional>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'alto'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--evaluation-data"/>
+                <not_has_text text="--partition"/>
+                <has_text text="--pad '2' '3'"/>
+                <has_text text="--optimizer 'SGD'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="xml"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="explicit"/>
+                    <conditional name="input_source">
+                        <param name="source" value="repeat"/>
+                        <repeat name="ground_truth_pairs">
+                            <param name="image" value="input_binarized.png" ftype="png"/>
+                            <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                        </repeat>
+                    </conditional>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                    <param name="spec" value="[1,240,0,1 Cr3,3,8]"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'xml'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--evaluation-data"/>
+                <not_has_text text="--partition"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_2pages.tiff" ftype="tiff"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <assert_stderr>
+                <has_text text="Multi-page TIF(F) training images are not supported. Detected 2 pages."/>
+            </assert_stderr>
+        </test>
+        <test expect_failure="true">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="explicit"/>
+                    <conditional name="input_source">
+                        <param name="source" value="repeat"/>
+                        <repeat name="ground_truth_pairs">
+                            <param name="image" value="input_binarized.png" ftype="png"/>
+                            <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                        </repeat>
+                    </conditional>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="load"/>
+                    <param name="model_type" value="weights"/>
+                    <param name="model" value="invalid_model.bin" ftype="binary"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--evaluation-data"/>
+                <not_has_text text="--partition"/>
+            </assert_command>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.5"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="load"/>
+                    <param name="model_type" value="weights"/>
+                    <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+                    <param name="resize" value="union"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+                <param name="weights_format" value="coreml"/>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--partition '0.5'"/>
+                <not_has_text text="--evaluation-data"/>
+                <has_text text="--resize 'union'"/>
+                <has_text text="--weights-format 'coreml'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.5"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="load"/>
+                    <param name="model_type" value="checkpoint"/>
+                    <param name="model" value="ketos_segtrain_resume.ckpt" ftype="zip"/>
+                    <param name="resize" value="union"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--partition '0.5'"/>
+                <not_has_text text="--evaluation-data"/>
+                <has_text text="--resize 'union'"/>
+                <has_text text="--load 'initial_model.ckpt'"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.5"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="resume"/>
+                    <param name="checkpoint" value="ketos_segtrain_resume.ckpt" ftype="zip"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="2"/>
+                    </conditional>
+                </section>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '2'"/>
+                <has_text text="--partition '0.5'"/>
+                <not_has_text text="--evaluation-data"/>
+                <has_text text="--resume"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                    <has_text text="Restored all states"/>
+                    <has_text text="checkpoint_01-"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.5"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                    <param name="spec" value="[1,240,0,1 Cr3,3,8]"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+                <conditional name="class_mapping">
+                    <param name="mode" value="custom"/>
+                    <repeat name="line_class_mapping">
+                        <param name="class_name" value="default"/>
+                        <param name="label" value="2"/>
+                    </repeat>
+                    <repeat name="line_class_mapping">
+                        <param name="class_name" value="other"/>
+                        <param name="label" value="2"/>
+                    </repeat>
+                    <repeat name="region_class_mapping">
+                        <param name="class_name" value="text"/>
+                        <param name="label" value="3"/>
+                    </repeat>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--partition '0.5'"/>
+                <not_has_text text="--evaluation-data"/>
+                <has_text text="--config"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="other"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+        <test expect_num_outputs="4">
+            <conditional name="training_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.5"/>
+                </conditional>
+            </conditional>
+            <section name="train_opts">
+                <conditional name="initialization">
+                    <param name="source" value="new"/>
+                    <param name="spec" value="[1,240,0,1 Cr3,3,8]"/>
+                </conditional>
+                <section name="stopping">
+                    <conditional name="stop_condition">
+                        <param name="quit" value="fixed"/>
+                        <param name="epochs" value="1"/>
+                    </conditional>
+                </section>
+                <conditional name="class_mapping">
+                    <param name="mode" value="custom"/>
+                    <repeat name="region_class_mapping">
+                        <param name="class_name" value="*"/>
+                        <param name="label" value="2"/>
+                    </repeat>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="segtrain"/>
+                <has_text text="--format-type 'page'"/>
+                <not_has_text text="--batch-size"/>
+                <has_text text="--epochs '1'"/>
+                <has_text text="--partition '0.5'"/>
+                <not_has_text text="--evaluation-data"/>
+                <has_text text="--config"/>
+            </assert_command>
+            <output name="best_model" ftype="binary">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Training Class Summary"/>
+                    <has_text text="Converting best model"/>
+                    <not_has_text text="Invalid entry"/>
+                </assert_contents>
+            </output>
+            <output_collection name="checkpoints" type="list" count="1"/>
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+## What it does
+
+Trains a Kraken model to locate text baselines and regions on page images using
+`ketos segtrain`. Train from scratch, fine-tune existing segmentation weights,
+or resume a training checkpoint.
+
+## Inputs
+
+Provide page images paired with PAGE XML or ALTO annotations containing baseline
+coordinates and region polygons. Text transcriptions are not required. Select
+pairs individually or use a `list:paired` collection: the forward element is the
+image and the reverse element is its annotation. The tool updates XML image
+references for the job. Split multi-page TIFF files into individual pages first.
+
+Validation can use a fraction of the input pages or separate image/annotation
+pairs. A split needs enough whole pages to leave at least one training page and
+one validation page. Explicit validation is useful for small datasets. Keep
+validation pages separate from training pages when assessing model quality.
+
+## Class mappings
+
+Labels are assigned automatically by default. Select **Set class labels explicitly**
+to configure `line_class_mapping` and `region_class_mapping`. Enter annotation
+class names and integer output labels starting at 2 (0 and 1 are reserved).
+For example, map baseline type `default` to 2 and region type `text` to 3.
+Baseline and region labels must not overlap. Within one category, assigning the
+same label to multiple types merges them; the first type is the exported name.
+Use `*` for a fallback label for unlisted types. Without a fallback, unlisted
+types are ignored. Leave one category empty to disable training for it; provide
+at least one mapping in the other category.
+
+These settings apply to new training and fresh runs from existing models.
+Resuming restores the checkpoint's saved mappings. For fresh runs with changed
+classes, select the appropriate output class resizing option.
+
+## Training and outputs
+
+The outputs are the best model weights, a text training report, training
+checkpoints, and TensorBoard logs. Exported weights can be used for Kraken
+segmentation. Checkpoints retain optimizer and training-loop state.
+
+Loading weights or a checkpoint starts a fresh run. Class resizing controls
+whether new baseline/region classes can be added or replace the old classes.
+Resuming restores the checkpoint's saved data configuration: supply the same
+images and annotations in their original order, with the same input format and
+validation setup. Checkpoints with paths from another tool or machine may need
+their original files and cannot necessarily be resumed here. When resuming,
+set epochs to the total desired epoch count, including already completed epochs.
+Upload checkpoints as binary data so Galaxy preserves the container intact.
+
+Kraken is licensed under the Apache-2.0 license.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

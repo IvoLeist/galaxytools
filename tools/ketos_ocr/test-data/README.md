@@ -145,3 +145,65 @@ planemo test ketos_test.xml
 
 The declared dependencies include `yq`, whose `xq` command updates XML image
 references to the staged image names.
+
+## Segmentation training
+
+`ketos_segtrain.xml` reuses `input_binarized.png` and its PAGE/ALTO annotations.
+Its tests cover page-level splitting, explicit validation, paired collections,
+mixed XML formats, optimizer and image options, Safetensors/CoreML export,
+loading weights or a checkpoint, resuming training, and invalid inputs.
+Repeated or overlapping pages keep these workflow tests small; they are not
+model-quality evaluations.
+
+`ketos_segtrain_model.safetensors` and `ketos_segtrain_resume.ckpt` are the
+exported weights and full checkpoint from a one-epoch Kraken 7.1.1 CPU run
+using the tiny segmentation network `[1,240,0,1 Cr3,3,8]`. The network preserves
+both spatial dimensions, with eight convolution channels and an output layer
+added by Kraken for the annotated baseline and region classes.
+
+To regenerate them, create `ground_truth_0` and `ground_truth_1` in a temporary
+directory. In each, copy `input_binarized.png` to `input.png`, and rewrite the
+PAGE fixture's image reference into `annotation.xml`:
+
+```sh
+xq -x --arg filename input.png '.PcGts.Page."@imageFilename" = $filename' \
+    input_binarized_ocr_output.page.xml > annotation.xml
+```
+
+From the parent directory, create `model` and `logs`, then run:
+
+```sh
+TORCHDYNAMO_DISABLE=1 ketos --device cpu --workers 0 --threads 1 \
+    --deterministic --seed 42 segtrain --output model \
+    --weights-format safetensors --format-type page \
+    --spec '[1,240,0,1 Cr3,3,8]' --quit fixed --epochs 1 --freq 1 \
+    --partition 0.5 --no-augment --logger tensorboard --log-dir logs \
+    ground_truth_0/annotation.xml ground_truth_1/annotation.xml
+```
+
+Copy `model/best_*.safetensors` and `model/checkpoint_00-*.ckpt` to the fixture
+names above. These relative annotation paths must match the wrapper's staging
+names because resuming restores the checkpoint's data configuration. The resume
+test recreates those paths in a new job and trains to a total of two epochs.
+Checkpoint tests use `ftype="zip"` to preserve the PyTorch container on upload.
+Fresh checkpoint loading also checks that the saved network dimensions are
+preserved instead of being replaced by Kraken's default network specification.
+
+Run the Galaxy integration tests with `planemo test ketos_segtrain.xml`.
+
+The custom class mapping tests train with baseline types `default` and `other`
+merged into label 2 and region type `text` assigned label 3, then separately
+train regions only with a wildcard mapping to label 2. The extra `other` type
+tests the mapping's alias configuration; the fixture contains `default` lines.
+The wrapper writes mappings as JSON in Kraken's YAML-compatible configuration
+file, preserving class names and integer labels. Empty mappings disable a
+category. Automatic mode and checkpoint resumption do not pass overrides.
+
+The manifest regression tests check the exact Cheetah output, including
+whitespace, for individual pairs and collections. Kraken does not trim manifest
+entries, so indentation must not become part of an input path. With Galaxy's
+Python dependencies and Cheetah3 installed, run:
+
+```sh
+python -m unittest discover -s tests -v
+```

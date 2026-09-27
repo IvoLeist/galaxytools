@@ -794,6 +794,7 @@
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.ckpt" directory="model" format="binary"/>
         </collection>
         <collection name="logs" type="list" label="${tool.name} on ${on_string}: logger files">
+            <!-- check why the yaml cannot be parsed correctly on production when trying to view it from  a galaxy history -->
             <discover_datasets pattern="(?P&lt;designation&gt;.+\.ya?ml)$" directory="logs" format="yaml" recurse="true" match_relative_path="true"/>
             <discover_datasets pattern="(?P&lt;designation&gt;(?!.*\.ya?ml$).+)" directory="logs" format="tfevents" recurse="true" match_relative_path="true"/>
         </collection>
