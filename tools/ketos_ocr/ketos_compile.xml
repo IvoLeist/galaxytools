@@ -11,46 +11,11 @@
     <command detect_errors="exit_code"><![CDATA[
         export TORCHINDUCTOR_CACHE_DIR="\${TORCHINDUCTOR_CACHE_DIR:-\$_GALAXY_JOB_TMP_DIR}" &&
 
-        #set $input_source = $training_data.input_source
-
-        #if $input_source.source == 'repeat'
-            #set $pairs = $input_source.ground_truth_pairs
-        #else
-            #set $pairs = $input_source.ground_truth_collection
-        #end if
-
-        #set $image_filename_jq_paths = {
-            'alto': '.alto.Description.sourceImageInformation.fileName', 
-            'page': '.PcGts.Page."@imageFilename"'
-        }
-
-        #for $i, $pair in enumerate($pairs)
-            #if $input_source.source == 'repeat'
-                #set $image = $pair.image
-                #set $annotation = $pair.annotation
-            #else
-                #set $image = $pair.forward
-                #set $annotation = $pair.reverse
-            #end if
-
-            @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
-
-            #if $training_data.format_type == 'path'
-                ln -s '$image' 'ground_truth_${i}.${image.ext}' &&
-                ln -s '$annotation' 'ground_truth_${i}.gt.txt' &&
-            #else
-                #set $image_filename = 'input.' + str($image.ext)
-                
-                mkdir -p 'ground_truth_${i}' &&
-                ln -s '$image' 'ground_truth_${i}/${image_filename}' &&
-
-                #set $image_filename_jq_path = $image_filename_jq_paths[str($training_data.format_type)]
-                xq -x --arg filename '$image_filename' 
-                    '$image_filename_jq_path = \$filename' 
-                    '$annotation' 
-                    > 'ground_truth_${i}/annotation.xml' &&
-            #end if
-        #end for
+        #set $stage_input_source = $training_data.input_source
+        #set $stage_format = $training_data.format_type
+        #set $stage_prefix = 'ground_truth'
+        @STAGE_RECOGNITION_GROUND_TRUTH@
+        #set $ground_truth_paths = $stage_paths
 
         ketos compile
             --output dataset.arrow
@@ -72,17 +37,8 @@
                 #end if
             #end if
 
-            #for $i, $pair in enumerate($pairs)
-                #if $training_data.format_type == 'path'
-                    #if $input_source.source == 'repeat'
-                        #set $image = $pair.image
-                    #else
-                        #set $image = $pair.forward
-                    #end if
-                    'ground_truth_${i}.${image.ext}'
-                #else
-                    'ground_truth_${i}/annotation.xml'
-                #end if
+            #for $path in $ground_truth_paths
+                '$path'
             #end for
     ]]></command>
     <expand macro="env_vars"/>
@@ -193,10 +149,10 @@
 
 **What it does**
 
-ketos belongs to kraken, an open-source, turn-key automatic text recognition (ATR) 
+ketos belongs to kraken, an open-source, turn-key automatic text recognition (ATR)
 system optimized for historical and non-Latin script writing.
-This tool only exposes Kraken's `ketos compile` command, 
-which compiles OCR ground-truth data into the Apache Arrow IPC dataset format 
+This tool only exposes Kraken's `ketos compile` command,
+which compiles OCR ground-truth data into the Apache Arrow IPC dataset format
 to be used with Ketos training commands. The expected input is a set of pairs,
 either selected manually or provided as a `list:paired` Galaxy collection, where each pair consists of:
 

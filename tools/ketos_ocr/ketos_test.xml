@@ -22,46 +22,11 @@
         #end if
 
         #if $test_data.format_type != 'binary'
-            #set $input_source = $test_data.input_source
-
-            #if $input_source.source == 'repeat'
-                #set $pairs = $input_source.ground_truth_pairs
-            #else
-                #set $pairs = $input_source.ground_truth_collection
-            #end if
-
-            #set $image_filename_jq_paths = {
-                'alto': '.alto.Description.sourceImageInformation.fileName',
-                'page': '.PcGts.Page."@imageFilename"'
-            }
-
-            #for $i, $pair in enumerate($pairs)
-                #if $input_source.source == 'repeat'
-                    #set $image = $pair.image
-                    #set $annotation = $pair.annotation
-                #else
-                    #set $image = $pair.forward
-                    #set $annotation = $pair.reverse
-                #end if
-
-                @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
-
-                #if $test_data.format_type == 'path'
-                    ln -s '$image' 'ground_truth_${i}.${image.ext}' &&
-                    ln -s '$annotation' 'ground_truth_${i}.gt.txt' &&
-                #else
-                    #set $image_filename = 'input.' + str($image.ext)
-
-                    mkdir -p 'ground_truth_${i}' &&
-                    ln -s '$image' 'ground_truth_${i}/${image_filename}' &&
-
-                    #set $image_filename_jq_path = $image_filename_jq_paths[str($test_data.format_type)]
-                    xq -x --arg filename '$image_filename'
-                        '$image_filename_jq_path = \$filename'
-                        '$annotation'
-                        > 'ground_truth_${i}/annotation.xml' &&
-                #end if
-            #end for
+            #set $stage_input_source = $test_data.input_source
+            #set $stage_format = $test_data.format_type
+            #set $stage_prefix = 'ground_truth'
+            @STAGE_RECOGNITION_GROUND_TRUTH@
+            #set $ground_truth_paths = $stage_paths
 
         #end if
 
@@ -101,17 +66,8 @@
                     '$dataset'
                 #end for
             #else
-                #for $i, $pair in enumerate($pairs)
-                    #if $test_data.format_type == 'path'
-                        #if $input_source.source == 'repeat'
-                            #set $image = $pair.image
-                        #else
-                            #set $image = $pair.forward
-                        #end if
-                        'ground_truth_${i}.${image.ext}'
-                    #else
-                        'ground_truth_${i}/annotation.xml'
-                    #end if
+                #for $path in $ground_truth_paths
+                    '$path'
                 #end for
             #end if
             > '$report'

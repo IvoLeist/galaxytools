@@ -17,6 +17,67 @@
         } &&
     #end if
     ]]></token>
+    <!-- Paired recognition inputs only (path, alto, page, or xml).
+         Callers set stage_input_source, stage_format, and stage_prefix.
+         PREPARE resolves pairs and paths without emitting shell commands, so it
+         can also be used in configfiles. STAGE additionally creates the files.
+         stage_pairs and stage_paths are replaced on every call; save stage_paths
+         before staging another set (e.g. explicit validation data). -->
+    <token name="@PREPARE_RECOGNITION_GROUND_TRUTH@"><![CDATA[
+        #if $stage_input_source.source == 'repeat'
+            #set $stage_pairs = $stage_input_source.ground_truth_pairs
+        #else
+            #set $stage_pairs = $stage_input_source.ground_truth_collection
+        #end if
+        #set $stage_paths = []
+        #for $i, $pair in enumerate($stage_pairs)
+            #if $stage_format == 'path'
+                #if $stage_input_source.source == 'repeat'
+                    #set $image = $pair.image
+                #else
+                    #set $image = $pair.forward
+                #end if
+                #silent $stage_paths.append($stage_prefix + '_' + str($i) + '.' + str($image.ext))
+            #else
+                #silent $stage_paths.append($stage_prefix + '_' + str($i) + '/annotation.xml')
+            #end if
+        #end for
+    ]]></token>
+    <token name="@STAGE_RECOGNITION_GROUND_TRUTH@"><![CDATA[
+        @PREPARE_RECOGNITION_GROUND_TRUTH@
+        #set $image_filename_jq_paths = {
+            'alto': '.alto.Description.sourceImageInformation.fileName',
+            'page': '.PcGts.Page."@imageFilename"'
+        }
+        #if $stage_format == 'xml'
+            #set $image_filename_jq_path = '(if has("alto") then ' + $image_filename_jq_paths['alto'] + ' elif has("PcGts") then ' + $image_filename_jq_paths['page'] + ' else error("Expected ALTO or PAGE XML") end)'
+        #elif $stage_format in ('alto', 'page')
+            #set $image_filename_jq_path = $image_filename_jq_paths[str($stage_format)]
+        #end if
+        #for $i, $pair in enumerate($stage_pairs)
+            #if $stage_input_source.source == 'repeat'
+                #set $image = $pair.image
+                #set $annotation = $pair.annotation
+            #else
+                #set $image = $pair.forward
+                #set $annotation = $pair.reverse
+            #end if
+
+            @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
+
+            #set $stage_basename = $stage_prefix + '_' + str($i)
+            #if $stage_format == 'path'
+                ln -s '$image' '$stage_paths[$i]' &&
+                ln -s '$annotation' '${stage_basename}.gt.txt' &&
+            #else
+                mkdir -p '$stage_basename' &&
+                ln -s '$image' '${stage_basename}/input.${image.ext}' &&
+                xq -x --arg filename 'input.${image.ext}'
+                    '$image_filename_jq_path = \$filename'
+                    '$annotation' > '$stage_paths[$i]' &&
+            #end if
+        #end for
+    ]]></token>
     <token name="@STAGE_INITIAL_MODEL@"><![CDATA[
         #if $train_opts.initialization.source == 'load' and $train_opts.initialization.model_type == 'checkpoint'
             ln -s '$train_opts.initialization.model' initial_model.ckpt &&

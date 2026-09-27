@@ -26,16 +26,6 @@
         KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
         KETOS_THREADS="\${KETOS_THREADS:-1}" &&
 
-        #set $image_filename_jq_paths = {
-            'alto': '.alto.Description.sourceImageInformation.fileName',
-            'page': '.PcGts.Page."@imageFilename"'
-        }
-        #if $training_data.format_type == 'xml'
-            #set $image_filename_jq_path = '(if has("alto") then ' + $image_filename_jq_paths['alto'] + ' elif has("PcGts") then ' + $image_filename_jq_paths['page'] + ' else error("Expected ALTO or PAGE XML") end)'
-        #elif $training_data.format_type in ('alto', 'page')
-            #set $image_filename_jq_path = $image_filename_jq_paths[str($training_data.format_type)]
-        #end if
-
         #if $training_data.format_type == 'binary'
             #for $i, $dataset in enumerate($training_data.ground_truth)
                 ln -s '$dataset' 'training_${i}.arrow' &&
@@ -46,69 +36,18 @@
                 #end for
             #end if
         #else
-            #set $input_source = $training_data.input_source
-
-            #if $input_source.source == 'repeat'
-                #set $pairs = $input_source.ground_truth_pairs
-            #else
-                #set $pairs = $input_source.ground_truth_collection
-            #end if
-
-            #for $i, $pair in enumerate($pairs)
-                #if $input_source.source == 'repeat'
-                    #set $image = $pair.image
-                    #set $annotation = $pair.annotation
-                #else
-                    #set $image = $pair.forward
-                    #set $annotation = $pair.reverse
-                #end if
-
-                @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
-
-                #if $training_data.format_type == 'path'
-                    ln -s '$image' 'ground_truth_${i}.${image.ext}' &&
-                    ln -s '$annotation' 'ground_truth_${i}.gt.txt' &&
-                #else
-                    mkdir -p 'ground_truth_${i}' &&
-                    ln -s '$image' 'ground_truth_${i}/input.${image.ext}' &&
-                    xq -x --arg filename 'input.${image.ext}'
-                        '$image_filename_jq_path = \$filename'
-                        '$annotation' > 'ground_truth_${i}/annotation.xml' &&
-                #end if
-            #end for
+            #set $stage_input_source = $training_data.input_source
+            #set $stage_format = $training_data.format_type
+            #set $stage_prefix = 'ground_truth'
+            @STAGE_RECOGNITION_GROUND_TRUTH@
+            #set $ground_truth_paths = $stage_paths
         #end if
 
         #if $training_data.format_type != 'binary' and $training_data.validation.validation_source == 'explicit'
-            #set $validation_input_source = $training_data.validation.input_source
-
-            #if $validation_input_source.source == 'repeat'
-                #set $validation_pairs = $validation_input_source.ground_truth_pairs
-            #else
-                #set $validation_pairs = $validation_input_source.ground_truth_collection
-            #end if
-
-            #for $i, $pair in enumerate($validation_pairs)
-                #if $validation_input_source.source == 'repeat'
-                    #set $image = $pair.image
-                    #set $annotation = $pair.annotation
-                #else
-                    #set $image = $pair.forward
-                    #set $annotation = $pair.reverse
-                #end if
-
-                @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
-
-                #if $training_data.format_type == 'path'
-                    ln -s '$image' 'validation_${i}.${image.ext}' &&
-                    ln -s '$annotation' 'validation_${i}.gt.txt' &&
-                #else
-                    mkdir -p 'validation_${i}' &&
-                    ln -s '$image' 'validation_${i}/input.${image.ext}' &&
-                    xq -x --arg filename 'input.${image.ext}'
-                        '$image_filename_jq_path = \$filename'
-                        '$annotation' > 'validation_${i}/annotation.xml' &&
-                #end if
-            #end for
+            #set $stage_input_source = $training_data.validation.input_source
+            #set $stage_format = $training_data.format_type
+            #set $stage_prefix = 'validation'
+            @STAGE_RECOGNITION_GROUND_TRUTH@
         #end if
 
         @STAGE_INITIAL_MODEL@
@@ -168,17 +107,8 @@
                     'training_${i}.arrow'
                 #end for
             #else
-                #for $i, $pair in enumerate($pairs)
-                    #if $training_data.format_type == 'path'
-                        #if $input_source.source == 'repeat'
-                            #set $image = $pair.image
-                        #else
-                            #set $image = $pair.forward
-                        #end if
-                        'ground_truth_${i}.${image.ext}'
-                    #else
-                        'ground_truth_${i}/annotation.xml'
-                    #end if
+                #for $path in $ground_truth_paths
+                    '$path'
                 #end for
             #end if
             > training_report.txt 2>&1 || ketos_exit_code=\$?;
@@ -197,24 +127,12 @@
                         validation_${i}.arrow
                     #end for
                 #else
-                    #set $source = $training_data.validation.input_source
-                    #if $source.source == 'repeat'
-                        #set $validation_pairs = $source.ground_truth_pairs
-                    #else
-                        #set $validation_pairs = $source.ground_truth_collection
-                    #end if
-
-                    #for $i, $pair in enumerate($validation_pairs)
-                        #if $training_data.format_type == 'path'
-                            #if $source.source == 'repeat'
-                                #set $image = $pair.image
-                            #else
-                                #set $image = $pair.forward
-                            #end if
-                            validation_${i}.${image.ext}
-                        #else
-                            validation_${i}/annotation.xml
-                        #end if
+                    #set $stage_input_source = $training_data.validation.input_source
+                    #set $stage_format = $training_data.format_type
+                    #set $stage_prefix = 'validation'
+                    @PREPARE_RECOGNITION_GROUND_TRUTH@
+                    #for $path in $stage_paths
+                        $path
                     #end for
                 #end if
             #end if
