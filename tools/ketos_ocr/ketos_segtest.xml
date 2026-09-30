@@ -1,0 +1,531 @@
+<tool id="ketos_segtest" name="Ketos Segtest" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>evaluate baseline and region segmentation against ground truth</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements">
+        <requirement type="package" version="4.1.2">yq</requirement>
+    </expand>
+    <expand macro="creators"/>
+    <command detect_errors="exit_code"><![CDATA[
+        export TORCHDYNAMO_DISABLE="\${TORCHDYNAMO_DISABLE:-1}" &&
+        export TORCHINDUCTOR_CACHE_DIR="\${TORCHINDUCTOR_CACHE_DIR:-\$_GALAXY_JOB_TMP_DIR}" &&
+        KETOS_DEVICE="\${KETOS_DEVICE:-cpu}" &&
+        KETOS_WORKERS="\${KETOS_WORKERS:-1}" &&
+        KETOS_THREADS="\${KETOS_THREADS:-1}" &&
+
+        #if $model_input.model_type == 'checkpoint'
+            ln -s '$model_input.model' model.ckpt &&
+            #set $model_path = 'model.ckpt'
+        #else
+            #set $model_path = str($model_input.model)
+        #end if
+
+        #set $stage_input_source = $test_data.input_source
+        #set $stage_format = $test_data.format_type
+        #set $stage_prefix = 'ground_truth'
+        @STAGE_RECOGNITION_GROUND_TRUTH@
+
+        python '$__tool_directory__/ketos_segtest.py'
+            #if $options.class_mapping.mode == 'custom'
+                --config '$class_mapping_config'
+            #end if
+            --device "\$KETOS_DEVICE"
+            --workers "\$KETOS_WORKERS"
+            --threads "\$KETOS_THREADS"
+            segtest
+            --model '$model_path'
+            --format-type '$test_data.format_type'
+            --test-class-mapping-mode '$options.class_mapping.mode'
+            #if str($options.bl_tol) not in ('', 'None')
+                --bl-tol '$options.bl_tol'
+            #end if
+            #for $path in $stage_paths
+                '$path'
+            #end for
+            > '$report'
+    ]]></command>
+    <expand macro="env_vars"/>
+    <configfiles>
+        <configfile name="class_mapping_config"><![CDATA[#import json
+#set $config = {}
+#if $options.class_mapping.mode == 'custom'
+#set $lines = [[str($entry.class_name), int($entry.label)] for $entry in $options.class_mapping.line_class_mapping]
+#set $regions = [[str($entry.class_name), int($entry.label)] for $entry in $options.class_mapping.region_class_mapping]
+#set $config = {'segtest': {'line_class_mapping': $lines, 'region_class_mapping': $regions}}
+#end if
+$json.dumps($config, ensure_ascii=True)
+]]></configfile>
+    </configfiles>
+    <inputs>
+        <conditional name="model_input">
+            <param name="model_type" type="select" label="Model format">
+                <option value="weights" selected="true">Model weights (Safetensors or CoreML)</option>
+                <option value="checkpoint">Training checkpoint</option>
+            </param>
+            <when value="weights">
+                <param name="model" type="data" format="binary,safetensors" label="Segmentation model"/>
+            </when>
+            <when value="checkpoint">
+                <param name="model" type="data" format="binary" label="Segmentation checkpoint" help="Use a checkpoint produced by Ketos Segtrain. Upload checkpoints as binary data so Galaxy preserves the file intact."/>
+            </when>
+        </conditional>
+        <conditional name="test_data">
+            <param argument="--format-type" type="select" label="Test data format">
+                <option value="page" selected="true">PAGE XML</option>
+                <option value="alto">ALTO</option>
+                <option value="xml">Automatically detect ALTO or PAGE XML (including mixed inputs)</option>
+            </param>
+            <when value="page">
+                <expand macro="paired_ground_truth_input" pair_label="page image/annotation" annotation_format="page.xml" annotation_label="PAGE annotation"/>
+            </when>
+            <when value="alto">
+                <expand macro="paired_ground_truth_input" pair_label="page image/annotation" annotation_format="alto" annotation_label="ALTO annotation"/>
+            </when>
+            <when value="xml">
+                <expand macro="paired_ground_truth_input" pair_label="page image/annotation" annotation_format="xml" annotation_label="ALTO or PAGE annotation"/>
+            </when>
+        </conditional>
+        <section name="options" title="Evaluation options" expanded="false">
+            <param argument="--bl-tol" type="float" min="0" optional="true" label="Baseline detection tolerance" help="Tolerance in pixels for matching detected baselines. Leave empty to use Kraken's default (10 pixels).">
+                <validator type="in_range" min="0" exclude_min="true"/>
+            </param>
+            <conditional name="class_mapping">
+                <param name="mode" type="select" label="Baseline and region class mappings" help="Use the checkpoint mapping, canonical model classes, or explicit mappings matching the model output labels.">
+                    <option value="full" selected="true">Full checkpoint mapping (canonical for weights)</option>
+                    <option value="canonical">Canonical model mapping</option>
+                    <option value="custom">Set class labels explicitly</option>
+                </param>
+                <when value="full"/>
+                <when value="canonical"/>
+                <when value="custom">
+                    <repeat name="line_class_mapping" title="Baseline class mapping" min="0" help="Map annotation line types to output labels. Leave empty to disable baseline evaluation. Reuse a label to merge line types; use * as the fallback for unlisted types.">
+                        <param name="class_name" type="text" label="Baseline class name">
+                            <validator type="empty_field"/>
+                            <sanitizer sanitize="false"/>
+                        </param>
+                        <param name="label" type="integer" min="2" value="2" label="Output label" help="Labels 0 and 1 are reserved. Baseline labels must not overlap region labels."/>
+                    </repeat>
+                    <repeat name="region_class_mapping" title="Region class mapping" min="0" help="Map annotation region types to output labels. Leave empty to disable region evaluation. Reuse a label to merge region types; use * as the fallback for unlisted types. Unlisted types are ignored without a fallback.">
+                        <param name="class_name" type="text" label="Region class name">
+                            <validator type="empty_field"/>
+                            <sanitizer sanitize="false"/>
+                        </param>
+                        <param name="label" type="integer" min="2" value="3" label="Output label" help="Labels 0 and 1 are reserved. Region labels must not overlap baseline labels."/>
+                    </repeat>
+                </when>
+            </conditional>
+        </section>
+    </inputs>
+    <outputs>
+        <data name="report" format="txt" label="${tool.name} on ${on_string}: segmentation accuracy"/>
+    </outputs>
+    <tests>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--test-class-mapping-mode 'full'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="page_0">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="bl_tol" value="5.0"/>
+                <conditional name="class_mapping">
+                    <param name="mode" value="canonical"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--test-class-mapping-mode 'canonical'"/>
+                <has_text text="--bl-tol '5.0'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="alto"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'alto'"/>
+                <has_text text="--test-class-mapping-mode 'full'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="alto"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="page_0">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="bl_tol" value="5.0"/>
+                <conditional name="class_mapping">
+                    <param name="mode" value="canonical"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'alto'"/>
+                <has_text text="--test-class-mapping-mode 'canonical'"/>
+                <has_text text="--bl-tol '5.0'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="xml"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                    </repeat>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.alto" ftype="xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'xml'"/>
+                <has_text text="--test-class-mapping-mode 'full'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="xml"/>
+                <conditional name="input_source">
+                    <param name="source" value="collection"/>
+                    <param name="ground_truth_collection">
+                        <collection type="list:paired">
+                            <element name="page_0">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                                </collection>
+                            </element>
+                            <element name="page_1">
+                                <collection type="paired">
+                                    <element name="forward" value="input_binarized.png" ftype="png"/>
+                                    <element name="reverse" value="input_binarized_ocr_output.alto" ftype="xml"/>
+                                </collection>
+                            </element>
+                        </collection>
+                    </param>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="bl_tol" value="5.0"/>
+                <conditional name="class_mapping">
+                    <param name="mode" value="canonical"/>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'xml'"/>
+                <has_text text="--test-class-mapping-mode 'canonical'"/>
+                <has_text text="--bl-tol '5.0'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="checkpoint"/>
+                <param name="model" value="ketos_segtrain_resume.ckpt" ftype="zip"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--test-class-mapping-mode 'full'"/>
+                <has_text text="--model 'model.ckpt'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <section name="options">
+                <param name="bl_tol" value="5.0"/>
+                <conditional name="class_mapping">
+                    <param name="mode" value="custom"/>
+                    <repeat name="line_class_mapping">
+                        <param name="class_name" value="default"/>
+                        <param name="label" value="2"/>
+                    </repeat>
+                    <repeat name="region_class_mapping">
+                        <param name="class_name" value="text"/>
+                        <param name="label" value="3"/>
+                    </repeat>
+                </conditional>
+            </section>
+            <assert_command>
+                <has_text text="segtest"/>
+                <has_text text="--format-type 'page'"/>
+                <has_text text="--test-class-mapping-mode 'custom'"/>
+                <has_text text="--config"/>
+                <has_text text="--bl-tol '5.0'"/>
+            </assert_command>
+            <output name="report" ftype="txt">
+                <assert_contents>
+                    <has_text text="Class Mapping Diagnostics"/>
+                    <has_text text="Pixel Accuracy"/>
+                    <has_text text="IOU"/>
+                    <has_text text="Object Count"/>
+                    <has_text text="Precision"/>
+                    <has_text text="Recall"/>
+                    <has_text text="F1"/>
+                    <has_text text="Overall"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="invalid_model.bin" ftype="binary"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_binarized.png" ftype="png"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+        </test>
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="model_input">
+                <param name="model_type" value="weights"/>
+                <param name="model" value="ketos_segtrain_model.safetensors" ftype="safetensors"/>
+            </conditional>
+            <conditional name="test_data">
+                <param name="format_type" value="page"/>
+                <conditional name="input_source">
+                    <param name="source" value="repeat"/>
+                    <repeat name="ground_truth_pairs">
+                        <param name="image" value="input_2pages.tiff" ftype="tiff"/>
+                        <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                    </repeat>
+                </conditional>
+            </conditional>
+            <assert_stderr>
+                <has_text text="Multi-page TIF(F) training images are not supported. Detected 2 pages."/>
+            </assert_stderr>
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+## What it does
+
+Evaluates one Kraken baseline and region segmentation model using `ketos segtest`.
+Use held-out pages that were not used for training or model selection to estimate
+segmentation quality.
+
+## Inputs
+
+Supply segmentation weights (Safetensors or CoreML) or a checkpoint from Ketos
+Segtrain, and page images paired with PAGE XML or ALTO annotations. Automatic XML
+mode accepts either format, including mixed inputs.
+
+Select pairs individually or as a `list:paired` collection: the forward element
+is the image and the reverse element is its annotation. The tool updates XML
+image references for the job. Split multi-page TIFF images into single pages first.
+Upload checkpoints as binary data (or ZIP) to preserve their container.
+
+## Evaluation options
+
+Baseline detection tolerance controls how closely predicted baselines must match
+the annotations. It defaults to 10 pixels.
+
+Full mapping uses the checkpoint's training class mappings, including merged
+classes, and falls back to canonical mappings for weights. Canonical mapping
+uses the model's one-to-one class mapping. Custom mapping maps annotation class
+names to existing model output labels; it does not add model classes. Labels 0
+and 1 are reserved. Baseline and region labels must not overlap. Reuse labels
+to merge types, or use * as a fallback for unlisted types. Empty mappings disable
+that category; unlisted types without a fallback are ignored.
+
+## Output
+
+The text report contains class mapping diagnostics, pixel accuracy and
+intersection-over-union (IOU) for auxiliary and region classes, and baseline
+detection precision, recall, and F1 when baseline classes are evaluated.
+Inspect mapping diagnostics when annotation classes differ from model classes.
+
+Kraken is licensed under the Apache-2.0 license.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

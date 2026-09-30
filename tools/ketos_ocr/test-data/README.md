@@ -207,3 +207,26 @@ Python dependencies and Cheetah3 installed, run:
 ```sh
 python -m unittest discover -s tests -v
 ```
+
+## Segmentation evaluation
+
+`ketos_segtest.xml` reuses the segmentation weights and checkpoint above with
+`input_binarized.png` and its PAGE/ALTO annotations. Ten integration tests cover
+individual and collection pairs in PAGE, ALTO, and mixed XML mode; full and
+canonical mappings; custom baseline/region mappings; a non-default baseline
+tolerance; checkpoint loading; invalid models; and multi-page TIFF rejection.
+Assertions check class diagnostics, region pixel metrics, and baseline detection
+precision, recall, and F1. The tiny model is a workflow fixture, not an accuracy
+benchmark.
+
+Run these tests with `planemo test ketos_segtest.xml`. The wrapper uses the shared
+XML staging macro and the declared `yq` dependency to update image references.
+
+Kraken 7.1.1's `segtest` report indexes compact auxiliary/region pixel-metric
+arrays by the original model class IDs. With baseline class 2 and region class 3,
+this raises `IndexError` after evaluation. `ketos_segtest.py` applies the narrow
+report-loop correction in memory, preserving class IDs for names/counts while
+using array positions for metric values. It leaves the installed package intact
+and fails explicitly if the upstream source no longer matches. Review/remove
+this shim when upgrading Kraken. Regression tests for non-contiguous class IDs
+run with `python3 -m unittest discover -s tests -v`.
