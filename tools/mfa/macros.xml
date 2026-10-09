@@ -187,6 +187,7 @@
         <creator>
             <person givenName="Armin" familyName="Dadras" url="https://github.com/dadrasarmin"/>
             <person givenName="Ivo Christopher" familyName="Leist" email="leist@informatik.uni-freiburg.de" identifier="https://orcid.org/0000-0002-9772-443X"/>
+            
             <organization name="AI4SOCIAL+" url="https://cordis.europa.eu/project/id/101292886"/>
         </creator>
     </xml>
