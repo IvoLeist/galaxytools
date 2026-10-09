@@ -70,7 +70,7 @@
                 <option value="single">Single Audio + Transcript Files</option>
             </param>
             <when value="archive">
-                <param name="corpus_archive" type="data" format="mfa_corpus_model.zip" label="Corpus Archive" help="Archive containing audio and transcripts, organized as SpeakerID/recording.wav and SpeakerID/recording.lab."/>
+                <param name="corpus_archive" type="data" format="mfa_corpus.zip" label="Corpus Archive" help="Archive containing audio and transcripts, organized as SpeakerID/recording.wav and SpeakerID/recording.lab."/>
             </when>
             <when value="collection">
                 <param name="corpus_collection" type="data_collection" collection_type="list:paired" label="Paired Corpus Collection" help="A list of paired datasets: the forward element of each pair is the audio file (wav) and the reverse element is the transcript (lab/txt). Speaker grouping is recovered from the element identifiers using the 'Speaker Characters' parameter below."/>
@@ -187,7 +187,9 @@
         <creator>
             <person givenName="Armin" familyName="Dadras" url="https://github.com/dadrasarmin"/>
             <person givenName="Ivo Christopher" familyName="Leist" email="leist@informatik.uni-freiburg.de" identifier="https://orcid.org/0000-0002-9772-443X"/>
+            
             <organization name="AI4SOCIAL+" url="https://cordis.europa.eu/project/id/101292886"/>
+        
         </creator>
     </xml>
 </macros>
