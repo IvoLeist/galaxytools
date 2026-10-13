@@ -1784,6 +1784,67 @@
                 </conditional>
             </section>
         </test>
+        <!-- Generic XML uses the same collection role checks as compile. -->
+        <expand macro="collection_pair_role_failure_test" format_type="xml" forward="input_binarized_ocr_output.page.xml" forward_ftype="xml" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: forward must be a JPG, PNG, or TIFF image.">
+            <token name="training_options">
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </token>
+            <token name="options">
+                <section name="train_opts">
+                    <conditional name="initialization">
+                        <param name="source" value="new"/>
+                    </conditional>
+                    <conditional name="arch">
+                        <param name="recognition_arch" value="vgsl"/>
+                        <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    </conditional>
+                </section>
+            </token>
+        </expand>
+        <expand macro="collection_pair_role_failure_test" format_type="xml" forward="input_binarized.png" forward_ftype="png" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: reverse must have datatype xml, alto, page.xml for the selected training data format.">
+            <token name="training_options">
+                <conditional name="validation">
+                    <param name="validation_source" value="training_data_split"/>
+                    <param name="partition" value="0.75"/>
+                </conditional>
+            </token>
+            <token name="options">
+                <section name="train_opts">
+                    <conditional name="initialization">
+                        <param name="source" value="new"/>
+                    </conditional>
+                    <conditional name="arch">
+                        <param name="recognition_arch" value="vgsl"/>
+                        <param name="vgsl_spec" value="[1,12,0,1 Cr3,3,8 S1(1x0)1,3]"/>
+                    </conditional>
+                </section>
+            </token>
+        </expand>
+        <!-- Generic XML also accepts the specific ALTO and PAGE XML datatypes. -->
+        <expand macro="train_nonbinary_test" format_type="xml">
+            <conditional name="input_source">
+                <param name="source" value="collection"/>
+                <param name="ground_truth_collection">
+                    <collection type="list:paired">
+                        <element name="alto_pair">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                            </collection>
+                        </element>
+                        <element name="page_pair">
+                            <collection type="paired">
+                                <element name="forward" value="input_binarized.png" ftype="png"/>
+                                <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                            </collection>
+                        </element>
+                    </collection>
+                </param>
+            </conditional>
+        </expand>
     </tests>
     <help format="markdown">
 ### What this tool does

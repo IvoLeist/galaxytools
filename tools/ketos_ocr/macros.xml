@@ -63,6 +63,20 @@
                 #set $annotation = $pair.reverse
             #end if
 
+            #if $stage_input_source.source == 'collection'
+                #set $pair_number = $i + 1
+                #set $annotation_extensions = {'path': ('txt',), 'alto': ('alto',), 'page': ('page.xml',), 'xml': ('xml', 'alto', 'page.xml')}
+                #set $expected_annotation_extensions = ', '.join($annotation_extensions[str($stage_format)])
+                #if $image.ext not in ('jpg', 'png', 'tiff')
+                    echo 'Invalid pair ${pair_number}: forward must be a JPG, PNG, or TIFF image.' >&2;
+                    exit 1;
+                #end if
+                #if $annotation.ext not in $annotation_extensions[str($stage_format)]
+                    echo 'Invalid pair ${pair_number}: reverse must have datatype ${expected_annotation_extensions} for the selected training data format.' >&2;
+                    exit 1;
+                #end if
+            #end if
+
             @REJECT_MULTIPAGE_TIFF_BASED_ON_FILE_METADATA@
 
             #set $stage_basename = $stage_prefix + '_' + str($i)
@@ -348,7 +362,9 @@
                     </repeat>
                 </when>
                 <when value="collection">
-                    <param name="ground_truth_collection" type="data_collection" collection_type="list:paired" format="jpg,png,tiff,@ANNOTATION_FORMAT@" label="@PAIR_LABEL@ pairs" help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription."/>
+                    <param name="ground_truth_collection" type="data_collection" collection_type="list:paired" format="jpg,png,tiff,@ANNOTATION_FORMAT@" label="@PAIR_LABEL@ pairs" help="For every pair, the forward element must be the source image and the reverse element must be its corresponding annotation or transcription.">
+                        <validator type="expression" message="Line image/transcription collections require JPG, PNG, or TIFF images and plain text (txt) transcriptions. For XML annotations, select ALTO or PAGE XML as the training data format.">'@FORMAT_TYPE@' != 'path' or value.extension in ('jpg', 'png', 'tiff', 'txt')</validator>
+                    </param>
                 </when>
             </conditional>
             <yield/>

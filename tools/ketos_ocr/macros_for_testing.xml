@@ -90,6 +90,48 @@
             <token name="assertions"/>
         </expand>
     </xml>
+    <!-- Test for expected datatype validation failure before job submission -->
+    <xml name="compile_transcription_validation_failure_test" tokens="source">
+        <test expect_failure="true">
+            <conditional name="training_data">
+                <param name="format_type" value="path"/>
+                <conditional name="input_source">
+                    <param name="source" value="@SOURCE@"/>
+                    <yield/>
+                </conditional>
+            </conditional>
+            <expand macro="compile_test_default_options"/>
+        </test>
+    </xml>
+    <xml name="collection_pair_test_input" tokens="forward,forward_ftype,reverse,reverse_ftype">
+        <conditional name="input_source">
+            <param name="source" value="collection"/>
+            <param name="ground_truth_collection">
+                <collection type="list:paired">
+                    <element name="pair_001">
+                        <collection type="paired">
+                            <element name="forward" value="@FORWARD@" ftype="@FORWARD_FTYPE@"/>
+                            <element name="reverse" value="@REVERSE@" ftype="@REVERSE_FTYPE@"/>
+                        </collection>
+                    </element>
+                </collection>
+            </param>
+        </conditional>
+    </xml>
+    <!-- Use inputs accepted by the selector, so staging checks their pair roles. -->
+    <xml name="collection_pair_role_failure_test" tokens="format_type,forward,forward_ftype,reverse,reverse_ftype,error">
+        <test expect_failure="true" expect_exit_code="1">
+            <conditional name="training_data">
+                <param name="format_type" value="@FORMAT_TYPE@"/>
+                <expand macro="collection_pair_test_input" forward="@FORWARD@" forward_ftype="@FORWARD_FTYPE@" reverse="@REVERSE@" reverse_ftype="@REVERSE_FTYPE@"/>
+                <yield name="training_options"/>
+            </conditional>
+            <yield name="options"/>
+            <assert_stderr>
+                <has_text text="@ERROR@"/>
+            </assert_stderr>
+        </test>
+    </xml>
     <xml name="compile_repeat_failure_test" tokens="format_type,image,annotation,annotation_ftype,error" token_image_ftype="tiff" token_exit_code="1">
         <test expect_failure="true" expect_exit_code="@EXIT_CODE@">
             <conditional name="training_data">

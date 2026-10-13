@@ -144,6 +144,92 @@
                 <has_text text="Multi-page TIF(F) training images are not supported. Detected 2 pages."/>
             </assert_stderr>
         </test>
+        <!-- Reject XML datatypes in individual and collection transcription inputs. -->
+        <expand macro="compile_transcription_validation_failure_test" source="repeat">
+            <repeat name="ground_truth_pairs">
+                <param name="image" value="compile_input_line.png" ftype="png"/>
+                <param name="annotation" value="input_binarized_ocr_output.alto" ftype="alto"/>
+            </repeat>
+        </expand>
+        <expand macro="compile_transcription_validation_failure_test" source="collection">
+            <param name="ground_truth_collection">
+                <collection type="list:paired">
+                    <element name="line_001">
+                        <collection type="paired">
+                            <element name="forward" value="compile_input_line.png" ftype="png"/>
+                            <element name="reverse" value="input_binarized_ocr_output.alto" ftype="alto"/>
+                        </collection>
+                    </element>
+                </collection>
+            </param>
+        </expand>
+        <expand macro="compile_transcription_validation_failure_test" source="repeat">
+            <repeat name="ground_truth_pairs">
+                <param name="image" value="compile_input_line.png" ftype="png"/>
+                <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+            </repeat>
+        </expand>
+        <expand macro="compile_transcription_validation_failure_test" source="collection">
+            <param name="ground_truth_collection">
+                <collection type="list:paired">
+                    <element name="line_001">
+                        <collection type="paired">
+                            <element name="forward" value="compile_input_line.png" ftype="png"/>
+                            <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="page.xml"/>
+                        </collection>
+                    </element>
+                </collection>
+            </param>
+        </expand>
+        <expand macro="compile_transcription_validation_failure_test" source="repeat">
+            <repeat name="ground_truth_pairs">
+                <param name="image" value="compile_input_line.png" ftype="png"/>
+                <param name="annotation" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+            </repeat>
+        </expand>
+        <expand macro="compile_transcription_validation_failure_test" source="collection">
+            <param name="ground_truth_collection">
+                <collection type="list:paired">
+                    <element name="line_001">
+                        <collection type="paired">
+                            <element name="forward" value="compile_input_line.png" ftype="png"/>
+                            <element name="reverse" value="input_binarized_ocr_output.page.xml" ftype="xml"/>
+                        </collection>
+                    </element>
+                </collection>
+            </param>
+        </expand>
+        <!-- Swapped pairs and two-image pairs exercise each staging role check. -->
+        <expand macro="collection_pair_role_failure_test" format_type="path" forward="compile_input_line.gt.txt" forward_ftype="txt" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: forward must be a JPG, PNG, or TIFF image.">
+            <token name="options">
+                <expand macro="compile_test_default_options"/>
+            </token>
+        </expand>
+        <expand macro="collection_pair_role_failure_test" format_type="path" forward="input_binarized.png" forward_ftype="png" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: reverse must have datatype txt for the selected training data format.">
+            <token name="options">
+                <expand macro="compile_test_default_options"/>
+            </token>
+        </expand>
+        <expand macro="collection_pair_role_failure_test" format_type="alto" forward="input_binarized_ocr_output.alto" forward_ftype="alto" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: forward must be a JPG, PNG, or TIFF image.">
+            <token name="options">
+                <expand macro="compile_test_default_options"/>
+            </token>
+        </expand>
+        <expand macro="collection_pair_role_failure_test" format_type="alto" forward="input_binarized.png" forward_ftype="png" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: reverse must have datatype alto for the selected training data format.">
+            <token name="options">
+                <expand macro="compile_test_default_options"/>
+            </token>
+        </expand>
+        <expand macro="collection_pair_role_failure_test" format_type="page" forward="input_binarized_ocr_output.page.xml" forward_ftype="page.xml" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: forward must be a JPG, PNG, or TIFF image.">
+            <token name="options">
+                <expand macro="compile_test_default_options"/>
+            </token>
+        </expand>
+        <expand macro="collection_pair_role_failure_test" format_type="page" forward="input_binarized.png" forward_ftype="png" reverse="input_binarized.png" reverse_ftype="png" error="Invalid pair 1: reverse must have datatype page.xml for the selected training data format.">
+            <token name="options">
+                <expand macro="compile_test_default_options"/>
+            </token>
+        </expand>
     </tests>
     <help format="markdown">
 
