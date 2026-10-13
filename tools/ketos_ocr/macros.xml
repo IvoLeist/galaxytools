@@ -342,7 +342,9 @@
                 <when value="repeat">
                     <repeat name="ground_truth_pairs" title="Ground-truth pair" min="1">
                         <param name="image" type="data" format="jpg,png,tiff" label="Source image"/>
-                        <param name="annotation" type="data" format="@ANNOTATION_FORMAT@" label="@ANNOTATION_LABEL@"/>
+                        <param name="annotation" type="data" format="@ANNOTATION_FORMAT@" label="@ANNOTATION_LABEL@">
+                            <validator type="expression" message="Line image/transcription pairs require plain text (txt). For XML annotations, select ALTO or PAGE XML as the training data format.">'@FORMAT_TYPE@' != 'path' or value.extension == 'txt'</validator>
+                        </param>
                     </repeat>
                 </when>
                 <when value="collection">
