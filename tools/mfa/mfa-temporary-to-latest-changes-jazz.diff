@@ -1,3 +1,11 @@
+diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/.gitignore b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/.gitignore
+new file mode 100644
+index 00000000..05ae5fd4
+--- /dev/null
++++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/.gitignore
+@@ -0,0 +1 @@
++README_PORT_TO_BGRUENING.md
+\ No newline at end of file
 diff --git a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/.shed.yml b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/.shed.yml
 index 2c5c2446..b678d399 100644
 --- a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/.shed.yml
@@ -11,6 +19,40 @@ index 2c5c2446..b678d399 100644
 -    * **Utilities:** mfa_g2p, mfa_tokenize, mfa_remap_alignments, mfa_merge
 \ No newline at end of file
 +    * **Utilities:** mfa_g2p, mfa_tokenize, mfa_remap_alignments
+\ No newline at end of file
+diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/Dockerfile-praat b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/Dockerfile-praat
+new file mode 100644
+index 00000000..8e457018
+--- /dev/null
++++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/Dockerfile-praat
+@@ -0,0 +1,27 @@
++FROM debian:bookworm-slim
++
++LABEL MAINTAINER="jazz"
++
++ENV PRAAT_VER=7.0.02
++ENV PRAAT_VER_NO_DOTS=7002
++
++RUN apt-get update && apt-get install -y --no-install-recommends \
++    wget \
++    tar \
++    ca-certificates \
++    libasound2 \
++    libgtk-3-0 \
++    libstdc++6 \
++    libjack-jackd2-0 \
++    libpulse0 \
++    fontconfig \
++    fonts-dejavu-core \
++    && wget https://github.com/praat/praat/releases/download/v${PRAAT_VER}/praat${PRAAT_VER_NO_DOTS}_linux-x64v3.tar.gz \
++    && tar -xzf praat${PRAAT_VER_NO_DOTS}_linux-x64v3.tar.gz -C /usr/bin \
++    && rm praat${PRAAT_VER_NO_DOTS}_linux-x64v3.tar.gz \
++    && rm -rf /var/lib/apt/lists/*
++
++COPY . /app
++WORKDIR /app
++
++CMD ["/bin/bash"]
 \ No newline at end of file
 diff --git a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/README.md b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/README.md
 index 1d4110d7..8fa3bf39 100644
@@ -55,8 +97,60 @@ index 1d4110d7..8fa3bf39 100644
 -- Optimization: Tests use small dictionaries (4 words) and robust noise-injected audio to ensure MFA's mathematical validation (LDA/MLLT) passes quickly without requiring massive datasets.
 \ No newline at end of file
 +- Optimization: Tests use small dictionaries (4 words) and robust noise-injected audio to ensure MFA's mathematical validation (LDA/MLLT) passes quickly without requiring massive datasets.
+diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/README_PORT_TO_BGRUENING.md b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/README_PORT_TO_BGRUENING.md
+new file mode 100644
+index 00000000..c7f58edb
+--- /dev/null
++++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/README_PORT_TO_BGRUENING.md
+@@ -0,0 +1,24 @@
++
++To check the differences between
++temporary-tools and the latest changes of this repo run
++in the terminal
++
++git diff --no-index -- \
++  /home/jazz/Documents/galaxy/temporary-tools/test/mfa \
++  /home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/ \
++  > mfa-temporary-to-latest-changes-jazz.diff
++
++
++To check the differences on the terminal run:
++delta < mfa-temporary-to-latest-changes-jazz.diff
++
++To get the latest changes from ivo run:
++git fetch upstream
++
++To add all and commit in one command run:
++git commit -am "insert changes here"
++
++To push to my fork/branch:
++git push
++
++when I've finished the changes: git push
+\ No newline at end of file
+diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/interactive_tools.code-workspace b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/interactive_tools.code-workspace
+new file mode 100644
+index 00000000..ac239f6e
+--- /dev/null
++++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/interactive_tools.code-workspace
+@@ -0,0 +1,14 @@
++{
++	"folders": [
++		{
++			"path": "../../../interactive_tools"
++		},
++		{
++			"path": "../../../galaxy-instance"
++		},
++		{
++			"path": "../.."
++		}
++	],
++	"settings": {}
++}
+\ No newline at end of file
 diff --git a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/macros.xml b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/macros.xml
-index 01325122..76d2b3a3 100644
+index 01325122..597aef0a 100644
 --- a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/macros.xml
 +++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/macros.xml
 @@ -1,12 +1,9 @@
@@ -111,18 +205,20 @@ index 01325122..76d2b3a3 100644
              </when>
          </conditional>
      </xml>
-@@ -191,6 +186,8 @@
+@@ -191,6 +186,10 @@
      <xml name="creators">
          <creator>
              <person givenName="Armin" familyName="Dadras" url="https://github.com/dadrasarmin"/>
 +            <person givenName="Ivo Christopher" familyName="Leist" email="leist@informatik.uni-freiburg.de" identifier="https://orcid.org/0000-0002-9772-443X"/>
++            
 +            <organization name="AI4SOCIAL+" url="https://cordis.europa.eu/project/id/101292886"/>
++        
          </creator>
      </xml>
  </macros>
 diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes-jazz.diff b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes-jazz.diff
 new file mode 100644
-index 00000000..f6492113
+index 00000000..3abf5840
 diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes.diff b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes.diff
 new file mode 100644
 index 00000000..520d2beb
