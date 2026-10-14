@@ -1,0 +1,27 @@
+FROM debian:bookworm-slim
+
+LABEL MAINTAINER="jazz"
+
+ENV PRAAT_VER=7.0.02
+ENV PRAAT_VER_NO_DOTS=7002
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    tar \
+    ca-certificates \
+    libasound2 \
+    libgtk-3-0 \
+    libstdc++6 \
+    libjack-jackd2-0 \
+    libpulse0 \
+    fontconfig \
+    fonts-dejavu-core \
+    && wget https://github.com/praat/praat/releases/download/v${PRAAT_VER}/praat${PRAAT_VER_NO_DOTS}_linux-x64v3.tar.gz \
+    && tar -xzf praat${PRAAT_VER_NO_DOTS}_linux-x64v3.tar.gz -C /usr/bin \
+    && rm praat${PRAAT_VER_NO_DOTS}_linux-x64v3.tar.gz \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY . /app
+WORKDIR /app
+
+CMD ["/bin/bash"]

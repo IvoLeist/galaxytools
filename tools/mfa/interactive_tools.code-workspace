@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../../interactive_tools"
+		},
+		{
+			"path": "../../../galaxy-instance"
+		},
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {}
+}
