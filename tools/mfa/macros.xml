@@ -79,7 +79,7 @@
             </when>
             <when value="single">
                 <param name="audio_file" type="data" format="wav" label="Audio File" help="A single audio file (WAV)."/>
-                <param name="transcript_file" type="data" format="txt, TextGrid" label="Transcript File" help="A single .TextGrid or .lab file with the transcript for the audio."/>
+                <param name="transcript_file" type="data" format="txt,textgrid" label="Transcript File" help="A single .TextGrid or .lab file with the transcript for the audio."/>
             </when>
         </conditional>
     </xml>
