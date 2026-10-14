@@ -15,7 +15,7 @@
             #end if
         #elif $corpus_input.source == 'collection':
             #for $element in $corpus_input.corpus_collection:
-            #set $trans_ext = '.TextGrid' if $element.reverse.ext == 'textgrid' else '.lab'
+                #set $trans_ext = '.TextGrid' if $element.reverse.ext == 'textgrid' else '.lab'
                 ln -s '$element.forward' 'corpus_dir/${element.element_identifier}.wav' &&
                 ln -s '$element.reverse' 'corpus_dir/${element.element_identifier}${trans_ext}' &&
             #end for

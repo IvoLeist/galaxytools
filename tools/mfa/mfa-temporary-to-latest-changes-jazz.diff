@@ -150,10 +150,10 @@ index 00000000..ac239f6e
 +}
 \ No newline at end of file
 diff --git a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/macros.xml b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/macros.xml
-index 01325122..bb78ed88 100644
+index 01325122..8c7d4675 100644
 --- a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/macros.xml
 +++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/macros.xml
-@@ -1,32 +1,27 @@
+@@ -1,26 +1,23 @@
  <macros>
 -    <token name="@TOOL_VERSION@">3.3.8</token>
 -    <token name="@VERSION_SUFFIX@">2</token>
@@ -178,39 +178,31 @@ index 01325122..bb78ed88 100644
          #elif $corpus_input.source == 'collection':
              #for $element in $corpus_input.corpus_collection:
 -                #set $trans_ext = '.TextGrid' if $element.reverse.ext == 'textgrid' else '.lab'
++            #set $trans_ext = '.TextGrid' if $element.reverse.ext == 'textgrid' else '.lab'
                  ln -s '$element.forward' 'corpus_dir/${element.element_identifier}.wav' &&
 -                ln -s '$element.reverse' 'corpus_dir/${element.element_identifier}$trans_ext' &&
-+                ln -s '$element.reverse' 'corpus_dir/${element.element_identifier}.lab' &&
++                ln -s '$element.reverse' 'corpus_dir/${element.element_identifier}${trans_ext}' &&
              #end for
          #else:
--            #set $single_trans_ext = $transcript_file.ext if $transcript_file.ext else 'lab'
-             mkdir -p corpus_dir/single_speaker &&
--            ln -s '$audio_file' 'corpus_dir/single_speaker/utterance.wav' &&
--            ln -s '$transcript_file' 'corpus_dir/single_speaker/utterance.$single_trans_ext' &&
-+            ln -s '$corpus_input.audio_file' 'corpus_dir/single_speaker/utterance.wav' &&
-+            ln -s '$corpus_input.transcript_file' 'corpus_dir/single_speaker/utterance.lab' &&
-         #end if
-     ]]></token>
-     <token name="@PREPARE_DICTIONARY@"><![CDATA[
-@@ -75,14 +70,14 @@
+             #set $single_trans_ext = $transcript_file.ext if $transcript_file.ext else 'lab'
+@@ -75,14 +72,14 @@
                  <option value="single">Single Audio + Transcript Files</option>
              </param>
              <when value="archive">
 -                <param name="corpus_archive" type="data" format="mfa_corpus_model.zip" label="Corpus Archive" help="Archive containing audio and transcripts, organized as SpeakerID.wav and SpeakerID.lab or SpeakerID.TextGrid."/>
-+                <param name="corpus_archive" type="data" format="mfa_corpus.zip" label="Corpus Archive" help="Archive containing audio and transcripts, organized as SpeakerID/recording.wav and SpeakerID/recording.lab."/>
++                <param name="corpus_archive" type="data" format="mfa_corpus.zip" label="Corpus Archive" help="Archive containing audio and transcripts, organized as SpeakerID.wav and SpeakerID.lab or SpeakerID.TextGrid."/>
              </when>
              <when value="collection">
--                <param name="corpus_collection" type="data_collection" collection_type="list:paired" label="Paired Corpus Collection" help="A list of paired datasets: the forward element of each pair is the audio file (wav) and the reverse element is the transcript (lab/txt/TextGrid). Speaker grouping is recovered from the element identifiers using the 'Speaker Characters' parameter below."/>
-+                <param name="corpus_collection" type="data_collection" collection_type="list:paired" label="Paired Corpus Collection" help="A list of paired datasets: the forward element of each pair is the audio file (wav) and the reverse element is the transcript (lab/txt). Speaker grouping is recovered from the element identifiers using the 'Speaker Characters' parameter below."/>
+                 <param name="corpus_collection" type="data_collection" collection_type="list:paired" label="Paired Corpus Collection" help="A list of paired datasets: the forward element of each pair is the audio file (wav) and the reverse element is the transcript (lab/txt/TextGrid). Speaker grouping is recovered from the element identifiers using the 'Speaker Characters' parameter below."/>
              </when>
              <when value="single">
                  <param name="audio_file" type="data" format="wav" label="Audio File" help="A single audio file (WAV)."/>
 -                <param name="transcript_file" type="data" format="txt,textgrid" label="Transcript File" help="A single .lab or .TextGrid file with the transcript for the audio."/>
-+                <param name="transcript_file" type="data" format="txt" label="Transcript File" help="A single text file with the transcript for the audio (one line of text)."/>
++                <param name="transcript_file" type="data" format="txt, TextGrid" label="Transcript File" help="A single .TextGrid or .lab file with the transcript for the audio."/>
              </when>
          </conditional>
      </xml>
-@@ -191,6 +186,10 @@
+@@ -191,6 +188,10 @@
      <xml name="creators">
          <creator>
              <person givenName="Armin" familyName="Dadras" url="https://github.com/dadrasarmin"/>
@@ -223,7 +215,7 @@ index 01325122..bb78ed88 100644
  </macros>
 diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes-jazz.diff b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes-jazz.diff
 new file mode 100644
-index 00000000..cd433c16
+index 00000000..4cf6b22c
 diff --git a/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes.diff b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa-temporary-to-latest-changes.diff
 new file mode 100644
 index 00000000..520d2beb
@@ -4582,7 +4574,7 @@ index 08c22bb6..a01e43bc 100644
                  <assert_contents>
                      <has_archive_member path=".*meta\.json"/>
 diff --git a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/mfa_align.xml b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa_align.xml
-index a7b76cd1..f28505b9 100644
+index a7b76cd1..ed8ace89 100644
 --- a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/mfa_align.xml
 +++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa_align.xml
 @@ -19,7 +19,7 @@
@@ -4594,14 +4586,7 @@ index a7b76cd1..f28505b9 100644
                  --speaker_characters '$speaker_characters'
              #end if
              --output_format long_textgrid
-@@ -33,13 +33,13 @@
-         <expand macro="common_inputs"/>
-     </inputs>
-     <outputs>
--        <data name="output_archive" format="mfa_textgrids.zip" label="${tool.name} on ${on_string}: Aligned TextGrids"/>
-+        <data name="output_archive" format="zip" label="${tool.name} on ${on_string}: Aligned TextGrids"/>
-     </outputs>
-     <tests>
+@@ -39,7 +39,7 @@
          <test expect_num_outputs="1">
              <conditional name="corpus_input">
                  <param name="source" value="archive"/>
@@ -4728,7 +4713,7 @@ index 577f3ff1..95b9c0dd 100644
      <tests>
          <test expect_num_outputs="1">
 diff --git a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/mfa_remap_alignments.xml b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa_remap_alignments.xml
-index c1c70e43..b0160501 100644
+index c1c70e43..446f81ac 100644
 --- a/home/jazz/Documents/galaxy/temporary-tools/test/mfa/mfa_remap_alignments.xml
 +++ b/home/jazz/Documents/galaxy/ivos-galaxytools/tools/mfa/mfa_remap_alignments.xml
 @@ -14,7 +14,7 @@
@@ -4740,14 +4725,7 @@ index c1c70e43..b0160501 100644
          mfa remap alignments
              corpus_dir
              mapping_rules.yaml
-@@ -28,21 +28,21 @@
-         <param name="mapping_file" type="data" format="yaml,json,txt" label="Mapping File" help="A file defining how to map old phones to new phones (e.g., Arpabet to IPA)."/>
-     </inputs>
-     <outputs>
--        <data name="output_archive" format="mfa_textgrids.zip" label="${tool.name} on ${on_string}: Remapped TextGrids"/>
-+        <data name="output_archive" format="zip" label="${tool.name} on ${on_string}: Remapped TextGrids"/>
-     </outputs>
-     <tests>
+@@ -34,15 +34,15 @@
          <test expect_num_outputs="1">
              <conditional name="corpus_input">
                  <param name="source" value="archive"/>
